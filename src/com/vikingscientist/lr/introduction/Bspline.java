@@ -13,9 +13,12 @@ public class Bspline {
 	int knotV_iterator = 0;
 	int hc = 0;
 	
+	Point origin;
+	
 	public Bspline(int p1, int p2) {
 		this.knotU = new int[p1+2];
 		this.knotV = new int[p1+2];
+		origin = new Point(0,0);
 	}
 	
 	public Bspline(int p1, int p2, int knotU[], int knotV[]) {
@@ -25,6 +28,7 @@ public class Bspline {
 			this.knotU[i] = knotU[i];
 		for(int i=0; i<p2+2; i++)
 			this.knotV[i] = knotV[i];
+		origin = new Point(0,0);
 	}
 	
 	public void putU(int u) {
@@ -106,7 +110,7 @@ public class Bspline {
 				if(knotU[i] == m.constPar)
 					hits++;
 		}
-		return hits == m.constPar;
+		return hits == m.mult;
 	}
 	
 	public boolean splitBy(MeshLine m) {
@@ -127,7 +131,7 @@ public class Bspline {
 		if( (  inU && !(knotU[0] <= value && value <= knotU[knotU.length-1]) ) ||
 		    ( !inU && !(knotV[0] <= value && value <= knotV[knotV.length-1]) )  ) {
 		    
-			Log.println(Log.ASSERT, "Bspline::split()", "Invalid knot insertion value=" + value + " in spline " + this);
+			Log.println(Log.ASSERT, "Bspline::split()", "Invalid " + ((inU)?"u":"v") + "-knot insertion value=" + value + " in spline " + this);
 			return null;
 		}
 		
@@ -169,26 +173,33 @@ public class Bspline {
 			
 		int max = (knotU.length < 5) ? knotU.length : 5;
 		for(int i=0; i<max; i++)
-			hc = hc ^ ( (knotU[i] & 7) << (i*3));
+			hc = hc ^ ( (knotU[i] & 7) << (i*3) );
 		max = (knotV.length < 5) ? knotV.length : 5;
 		for(int i=0; i<max; i++)
-			hc = hc ^ ( (knotV[i] & 7) << (i*3+15));
+			hc = hc ^ ( (knotV[i] & 7) << (i*3+15) );
 		
 		return hc;
 	}
 	
-	public boolean equals(Bspline b) {
+	public boolean equals(Object obj) {
+		if(obj == null || ! (obj instanceof Bspline))
+			return false;
+		
+		Bspline b = (Bspline) obj;
+		
 		for(int i=0; i<knotU.length; i++)	
 			if(knotU[i] != b.getKnotU(i))
 				return false;
 		for(int i=0; i<knotV.length; i++)	
 			if(knotV[i] != b.getKnotV(i))
 				return false;
+		
 		return true;
 	}
 	
 	public Bspline copy() {
 		Bspline newSpline = new Bspline(knotU.length-2, knotV.length-2, knotU, knotV);
+		newSpline.origin = origin;
 		return newSpline;
 	}
 	

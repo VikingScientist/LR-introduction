@@ -14,7 +14,7 @@ import android.util.Log;
 public class LRSpline {
 	
 	// rendering controls
-	final int CIRCLE_POINTS = 20;
+	static final int CIRCLE_POINTS = 20;
 	
 	// core LR B-spline information
 	int p1, p2;
@@ -31,7 +31,9 @@ public class LRSpline {
 	volatile FloatBuffer circVerts;
 	volatile ShortBuffer circInterior;
 	volatile ShortBuffer circEdge;
-	int multCount[];
+	volatile FloatBuffer circVertsOrigin;
+	
+	volatile int         multCount[];
 	volatile int         circIntCount;
 	volatile int         circEdgeCount;
 	
@@ -83,8 +85,8 @@ public class LRSpline {
 			}
 		}
 		
-		for(Bspline b : functions) 
-			Log.println(Log.ASSERT, "all hash values", "" + b.hashCode());
+//		for(Bspline b : functions) 
+//			Log.println(Log.ASSERT, "all hash values", "" + b.hashCode() + " for spline " + b);
 		
 	}
 	
@@ -113,6 +115,10 @@ public class LRSpline {
 		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*2*functions.size());
 		bb.order(ByteOrder.nativeOrder());
 		circEdge = bb.asShortBuffer();
+		
+		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*2*functions.size());
+		bb.order(ByteOrder.nativeOrder());
+		circVertsOrigin = bb.asFloatBuffer();
 		
 		circIntCount  = (CIRCLE_POINTS)*3*functions.size();
 		circEdgeCount = (CIRCLE_POINTS)*2*functions.size();
@@ -146,6 +152,8 @@ public class LRSpline {
 			Point p = b.getGrevillePoint();
 			circVerts.put(p.x);
 			circVerts.put(p.y);
+			circVertsOrigin.put(b.origin.x);
+			circVertsOrigin.put(b.origin.y);
 //			Log.println(Log.INFO, "circVerts", p.x + ", " + p.y);
 		}
 		for(Bspline b : functions) { // then add in all circumference points
@@ -155,8 +163,12 @@ public class LRSpline {
 				double t = ((float) i)/(CIRCLE_POINTS-1) * 2 * Math.PI;
 				double x = p.x + r*Math.cos(t);
 				double y = p.y + r*Math.sin(t);
+				double xo = b.origin.x + r*Math.cos(t);
+				double yo = b.origin.y + r*Math.sin(t);
 				circVerts.put((float) x);
 				circVerts.put((float) y);
+				circVertsOrigin.put((float) xo);
+				circVertsOrigin.put((float) yo);
 //				Log.println(Log.INFO, "circVerts", x + ", " + y);
 			}
 		}
@@ -282,7 +294,11 @@ public class LRSpline {
 	}
 	
 	public boolean insertLine(Point p1, Point p2) {
-		Log.println(Log.ASSERT, "insertLine", "p1 = " + p1 + " p2 = " + p2);
+//		Log.println(Log.ASSERT, "insertLine", "p1 = " + p1 + " p2 = " + p2);
+		
+		if(! (p1.x == p2.x || p1.y == p2.y)) // cannot insert non- vertical/horizontal lines
+			return false;
+		
 		boolean insertSpanU = p1.y == p2.y;
 		float start, stop, constPar;
 		if(insertSpanU) {
@@ -304,6 +320,9 @@ public class LRSpline {
 			stop	 *= 2;
 			constPar *= 2;
 		}
+		
+		for(Bspline b : functions)
+			b.origin = b.getGrevillePoint();
 		
 		boolean found = false;
 		MeshLine newLine = null;
@@ -329,26 +348,29 @@ public class LRSpline {
 			lines.add(newLine);
 		}
 		
-		Stack<Bspline> newSpline = new Stack<Bspline>();
+		Stack<Bspline> newSpline    = new Stack<Bspline>();
 		Stack<Bspline> removeSpline = new Stack<Bspline>();
 		for(Bspline b : functions) {
 			if(b.splitBy(newLine) && !b.hasLine(newLine)) {
 				Bspline newB[] = b.split(!newLine.span_u, newLine.constPar);
-				removeSpline.add(b);
+				removeSpline.push(b);
 				newSpline.push(newB[0]);
 				newSpline.push(newB[1]);
 			}
 		}
+//		Log.println(Log.ASSERT, "InsertLine beforemath", "# bsplines       = " + functions.size());
+//		Log.println(Log.ASSERT, "InsertLine beforemath", "# lines          = " + lines.size());
+//		Log.println(Log.ASSERT, "InsertLine beforemath", "# new splines    = " + newSpline.size());
+//		Log.println(Log.ASSERT, "InsertLine beforemath", "# remove splines = " + removeSpline.size());
+//		Log.println(Log.ASSERT, "InsertLine beforemath", "");
 		
 		while(!newSpline.isEmpty()) {
 			Bspline b = newSpline.pop();
 			boolean isSplit = false;
 			for(MeshLine m : lines) {
 				if(b.splitBy(m) && !b.hasLine(m)) {
-					Bspline newB[] = b.split(!newLine.span_u, m.constPar);
-					removeSpline.add(b);
-					functions.add(newB[0]);
-					functions.add(newB[1]);
+					Bspline newB[] = b.split(!m.span_u, m.constPar);
+					removeSpline.push(b);
 					newSpline.push(newB[0]);
 					newSpline.push(newB[1]);
 					isSplit = true;
@@ -358,15 +380,40 @@ public class LRSpline {
 			if(!isSplit)
 				functions.add(b);
 		}
+		
 
-		for(Bspline b : removeSpline)
-			functions.remove(b);
+//		Log.println(Log.ASSERT, "InsertLine midmath", "# bsplines       = " + functions.size());
+//		Log.println(Log.ASSERT, "InsertLine midmath", "# lines          = " + lines.size());
+//		Log.println(Log.ASSERT, "InsertLine midmath", "# new splines    = " + newSpline.size());
+//		Log.println(Log.ASSERT, "InsertLine midmath", "# remove splines = " + removeSpline.size());
+//		Log.println(Log.ASSERT, "InsertLine midmath", "");
+
+		while(!removeSpline.isEmpty())
+			functions.remove(removeSpline.pop());
 		
+//		Log.println(Log.ASSERT, "InsertLine aftermath", "# bsplines       = " + functions.size());
+//		Log.println(Log.ASSERT, "InsertLine aftermath", "# lines          = " + lines.size());
+//		Log.println(Log.ASSERT, "InsertLine aftermath", "# new splines    = " + newSpline.size());
+//		Log.println(Log.ASSERT, "InsertLine aftermath", "# remove splines = " + removeSpline.size());
+//		Log.println(Log.ASSERT, "InsertLine aftermath", "" );
+//		
 //		for(Bspline b : functions) 
-//			Log.println(Log.ASSERT, "all functions", b.toString());
-		
+//			Log.println(Log.ASSERT, "all hash values", "" + b.hashCode() + " for spline " + b);
 		
 		return true;
+	}
+	
+	public LRSpline copy() {
+		LRSpline ans = new LRSpline(p1,p2,p1+1,p2+1);
+		ans.lines.clear();
+		ans.functions.clear();
+		
+		for(MeshLine m : lines)
+			ans.lines.add(m.copy());
+		for(Bspline b : functions)
+			ans.functions.add(b.copy());
+		return ans;
+		
 	}
 
 }

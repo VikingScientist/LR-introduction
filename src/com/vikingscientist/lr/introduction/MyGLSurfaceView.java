@@ -10,8 +10,11 @@ public class MyGLSurfaceView extends GLSurfaceView {
 
 	MyRenderer renderer; 
 	LRSpline spline = new LRSpline(2, 2, 4, 3);
+	
 	int width;
 	int height;
+	
+	volatile boolean inAnimation;
 	
 	public MyGLSurfaceView(Context context) {
 		super(context);
@@ -19,14 +22,27 @@ public class MyGLSurfaceView extends GLSurfaceView {
 		setEGLContextClientVersion(2);
 
 		// Set the Renderer for drawing on the GLSurfaceView
-		renderer = new MyRenderer(spline);
+		renderer = new MyRenderer(spline, this);
 		setRenderer(renderer);
 		
 		// Render the view only when there is a change in the drawing data
 		setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 	}
 	
+	public void setAnimation(boolean animate) {
+		if(animate) {
+			renderer.startAnimation(2.0f);
+			inAnimation = true;
+			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+		} else {
+			inAnimation = false;
+			setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+		}
+	}
+	
 	public boolean onTouchEvent(MotionEvent e) {
+		if(inAnimation)
+			return true;
 		float x = e.getX();
 		float y = e.getY();
 		width  = getWidth();
@@ -53,12 +69,14 @@ public class MyGLSurfaceView extends GLSurfaceView {
 			Point line[] = renderer.getNewLine();
 			Point snapEnd = spline.snapEndToMesh(line[1], !spline.lastSnappedToUspan);
 			renderer.setNewLineEndPos(snapEnd);
-			
-			if(spline.insertLine(line[0], snapEnd))
-				spline.buildBuffers();
-			
+
 			renderer.terminateNewLine();
-			requestRender();
+			if(spline.insertLine(line[0], snapEnd)) {
+				spline.buildBuffers();
+				setAnimation(true);
+			}
+			
+//			requestRender();
 		}
 		
 		return true;

@@ -29,6 +29,10 @@ public class Point {
 		}
 	}
 	
+	public Point copy() {
+		return new Point(x,y);
+	}
+	
 	public String toString() {
 		return "(" + x + ", " + y + ")";
 	}

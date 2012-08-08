@@ -28,4 +28,8 @@ public class MeshLine {
 		this.constPar = constPar;
 	}
 	
+	public MeshLine copy() {
+		return new MeshLine(span_u, constPar, start, stop, mult);
+	}
+	
 }
