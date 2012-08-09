@@ -2,11 +2,14 @@ package com.vikingscientist.lr.introduction;
 
 import android.content.Context;
 import android.opengl.GLSurfaceView;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.Button;
 
-public class MyGLSurfaceView extends GLSurfaceView {
+public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 
 	MyRenderer renderer; 
 	LRSpline spline = new LRSpline(2, 2, 4, 3);
@@ -18,6 +21,16 @@ public class MyGLSurfaceView extends GLSurfaceView {
 	
 	public MyGLSurfaceView(Context context) {
 		super(context);
+		init();
+	}
+	
+	public MyGLSurfaceView(Context context, AttributeSet attrs)
+	{
+		super(context, attrs);
+		init();
+	}
+	
+	public void init() {
 		// Create an OpenGL ES 2.0 context
 		setEGLContextClientVersion(2);
 
@@ -88,6 +101,17 @@ public class MyGLSurfaceView extends GLSurfaceView {
 		}
 		
 		return true;
+	}
+
+	public void onClick(View v) {
+		if(v == findViewById(R.id.bLine)) {
+			Log.println(Log.DEBUG, "onClick()", "Bspline button clicked");
+		} else if(v == findViewById(R.id.bLine)) {
+			Log.println(Log.DEBUG, "onClick()", "Meshline button clicked");
+		} else {
+			Log.println(Log.DEBUG, "onClick()", "Some button clicked");
+		}
+		
 	}
 	
 
