@@ -29,12 +29,16 @@ public class MyGLSurfaceView extends GLSurfaceView {
 		setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 	}
 	
-	public void setAnimation(boolean animate) {
-		if(animate) {
-			renderer.startAnimation(2.0f);
+	public void setAnimation(Animation animate) {
+		if(animate == Animation.BSPLINE_SPLIT) {
+			renderer.startAnimation(2.0f, animate);
 			inAnimation = true;
 			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
-		} else {
+		} else if(animate == Animation.MESHLINE_FADE) {
+			renderer.startAnimation(1.0f, animate);
+			inAnimation = true;
+			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+		} else if(animate == Animation.NONE) {
 			inAnimation = false;
 			setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 		}
@@ -69,11 +73,15 @@ public class MyGLSurfaceView extends GLSurfaceView {
 			Point line[] = renderer.getNewLine();
 			Point snapEnd = spline.snapEndToMesh(line[1], !spline.lastSnappedToUspan);
 			renderer.setNewLineEndPos(snapEnd);
-
-			renderer.terminateNewLine();
-			if(spline.insertLine(line[0], snapEnd)) {
+			if(line[0].dist2(snapEnd) == 0.0f) {
+				renderer.terminateNewLine();
+				requestRender();
+			} else if(spline.insertLine(line[0], snapEnd)) {
+				renderer.terminateNewLine();
 				spline.buildBuffers();
-				setAnimation(true);
+				setAnimation(Animation.BSPLINE_SPLIT);
+			} else {
+				setAnimation(Animation.MESHLINE_FADE);
 			}
 			
 //			requestRender();

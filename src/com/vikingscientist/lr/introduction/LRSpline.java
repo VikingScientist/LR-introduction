@@ -18,8 +18,9 @@ public class LRSpline {
 	
 	// core LR B-spline information
 	int p1, p2;
-	ArrayList<MeshLine> lines     = new ArrayList<MeshLine>();
-	HashSet<Bspline>    functions = new HashSet<Bspline>();
+	ArrayList<MeshLine> lines            = new ArrayList<MeshLine>();
+	HashSet<Bspline>    functions        = new HashSet<Bspline>();
+	ArrayList<Bspline>  animationSplines = new ArrayList<Bspline>();
 	
 	// nice-to-have variables
 	int uMax;
@@ -100,28 +101,30 @@ public class LRSpline {
 	
 	public void buildBuffers() {
 		// allocate new buffers
+		int nBsplines = functions.size() + animationSplines.size();
+		
 		ByteBuffer bb = ByteBuffer.allocateDirect(lines.size()*4*4);
 		bb.order(ByteOrder.nativeOrder());
 		linePoints = bb.asFloatBuffer();
 		
-		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*2*functions.size());
+		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*2*nBsplines);
 		bb.order(ByteOrder.nativeOrder());
 		circVerts = bb.asFloatBuffer();
 		
-		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*3*functions.size());
+		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*3*nBsplines);
 		bb.order(ByteOrder.nativeOrder());
 		circInterior = bb.asShortBuffer();
 		
-		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*2*functions.size());
+		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*2*nBsplines);
 		bb.order(ByteOrder.nativeOrder());
 		circEdge = bb.asShortBuffer();
 		
-		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*2*functions.size());
+		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*2*nBsplines);
 		bb.order(ByteOrder.nativeOrder());
 		circVertsOrigin = bb.asFloatBuffer();
 		
-		circIntCount  = (CIRCLE_POINTS)*3*functions.size();
-		circEdgeCount = (CIRCLE_POINTS)*2*functions.size();
+		circIntCount  = (CIRCLE_POINTS)*3*nBsplines;
+		circEdgeCount = (CIRCLE_POINTS)*2*nBsplines;
 		
 		
 		// evaluate the line stuff
@@ -148,48 +151,58 @@ public class LRSpline {
 		
 		
 		// evaluate the circle stuff
-		for(Bspline b : functions) { // first add in all center points
-			Point p = b.getGrevillePoint();
-			circVerts.put(p.x);
-			circVerts.put(p.y);
-			circVertsOrigin.put(b.origin.x);
-			circVertsOrigin.put(b.origin.y);
-//			Log.println(Log.INFO, "circVerts", p.x + ", " + p.y);
-		}
-		for(Bspline b : functions) { // then add in all circumference points
-			Point p = b.getGrevillePoint();
-			float r = 0.025f*uMax;
-			for(int i=0; i<CIRCLE_POINTS; i++) {
-				double t = ((float) i)/(CIRCLE_POINTS-1) * 2 * Math.PI;
-				double x = p.x + r*Math.cos(t);
-				double y = p.y + r*Math.sin(t);
-				double xo = b.origin.x + r*Math.cos(t);
-				double yo = b.origin.y + r*Math.sin(t);
-				circVerts.put((float) x);
-				circVerts.put((float) y);
-				circVertsOrigin.put((float) xo);
-				circVertsOrigin.put((float) yo);
-//				Log.println(Log.INFO, "circVerts", x + ", " + y);
-			}
-		}
-		int n = functions.size();
-		for(int i=0; i<functions.size(); i++) {
+		for(Bspline b : functions) // first add in all center points
+			putCenterPoint(b);
+		for(Bspline b : animationSplines)
+			putCenterPoint(b);
+		
+		for(Bspline b : functions) // then add in all circumference points
+			putCircumfurencePoint(b);
+		for(Bspline b : animationSplines)
+			putCircumfurencePoint(b);
+		
+		for(int i=0; i<nBsplines; i++) {
 			for(int j=0; j<CIRCLE_POINTS; j++) {
-				circEdge.put((short) (n + CIRCLE_POINTS*i +   j)  );
-				circEdge.put((short) (n + CIRCLE_POINTS*i + (j+1)%CIRCLE_POINTS));
+				circEdge.put((short) (nBsplines + CIRCLE_POINTS*i +   j)  );
+				circEdge.put((short) (nBsplines + CIRCLE_POINTS*i + (j+1)%CIRCLE_POINTS));
 				
 				circInterior.put((short) i);
-				circInterior.put((short) (n + CIRCLE_POINTS*i +   j)  );
-				circInterior.put((short) (n + CIRCLE_POINTS*i + (j+1)%CIRCLE_POINTS));
+				circInterior.put((short) (nBsplines + CIRCLE_POINTS*i +   j)  );
+				circInterior.put((short) (nBsplines + CIRCLE_POINTS*i + (j+1)%CIRCLE_POINTS));
 			}
 		}
 		
 		// reset all buffer iterators
 		linePoints.position(0);
 		circVerts.position(0);
+		circVertsOrigin.position(0);
 		circInterior.position(0);
 		circEdge.position(0);
 		
+	}
+	
+	public void putCenterPoint(Bspline b) {
+		Point p = b.getGrevillePoint();
+		circVerts.put(p.x);
+		circVerts.put(p.y);
+		circVertsOrigin.put(b.origin.x);
+		circVertsOrigin.put(b.origin.y);
+	}
+	
+	public void putCircumfurencePoint(Bspline b) {
+		Point p = b.getGrevillePoint();
+		float r = 0.025f*uMax;
+		for(int i=0; i<CIRCLE_POINTS; i++) {
+			double t = ((float) i)/(CIRCLE_POINTS-1) * 2 * Math.PI;
+			double x = p.x + r*Math.cos(t);
+			double y = p.y + r*Math.sin(t);
+			double xo = b.origin.x + r*Math.cos(t);
+			double yo = b.origin.y + r*Math.sin(t);
+			circVerts.put((float) x);
+			circVerts.put((float) y);
+			circVertsOrigin.put((float) xo);
+			circVertsOrigin.put((float) yo);
+		}
 	}
 	
 	public void expandKnotSpans() {
@@ -350,13 +363,21 @@ public class LRSpline {
 		
 		Stack<Bspline> newSpline    = new Stack<Bspline>();
 		Stack<Bspline> removeSpline = new Stack<Bspline>();
+		animationSplines.clear();
+		boolean dimensionIncrease = false;
 		for(Bspline b : functions) {
 			if(b.splitBy(newLine) && !b.hasLine(newLine)) {
 				Bspline newB[] = b.split(!newLine.span_u, newLine.constPar);
 				removeSpline.push(b);
 				newSpline.push(newB[0]);
 				newSpline.push(newB[1]);
+				dimensionIncrease = true;
 			}
+		}
+		
+		if(!dimensionIncrease) {
+			lines.remove(newLine);
+			return false;
 		}
 //		Log.println(Log.ASSERT, "InsertLine beforemath", "# bsplines       = " + functions.size());
 //		Log.println(Log.ASSERT, "InsertLine beforemath", "# lines          = " + lines.size());
@@ -377,8 +398,10 @@ public class LRSpline {
 					break;
 				}
 			}
-			if(!isSplit)
+			if(!isSplit) {
 				functions.add(b);
+				animationSplines.add(b);
+			}
 		}
 		
 
@@ -399,6 +422,9 @@ public class LRSpline {
 //		
 //		for(Bspline b : functions) 
 //			Log.println(Log.ASSERT, "all hash values", "" + b.hashCode() + " for spline " + b);
+		
+		for(Bspline b : functions)
+			Log.println(Log.DEBUG, "split review", b + " from " + b.origin + " to " + b.getGrevillePoint());
 		
 		return true;
 	}

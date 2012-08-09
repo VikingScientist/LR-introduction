@@ -57,6 +57,7 @@ public class Bspline {
 			knotU[i] *= 2;
 		for(int i=0; i<knotV.length; i++)
 			knotV[i] *= 2;
+		origin.multiply(2);
 	}
 	
 	public Point getGrevillePoint() {
@@ -199,7 +200,7 @@ public class Bspline {
 	
 	public Bspline copy() {
 		Bspline newSpline = new Bspline(knotU.length-2, knotV.length-2, knotU, knotV);
-		newSpline.origin = origin;
+		newSpline.origin = origin.copy();
 		return newSpline;
 	}
 	

@@ -28,8 +28,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	private boolean displayTouchLine = false;
 	
-	private volatile float animationLength = 0.0f;
-	private volatile long  startTime       = 0;
+	private volatile float    animationLength = 0.0f;
+	private volatile long     startTime       = 0;
+	private volatile Animation animation       = Animation.NONE;
 	
 	public MyRenderer(LRSpline spline, MyGLSurfaceView parent) {
 		this.parent = parent;
@@ -55,9 +56,19 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
 		
 		// fetch all shader variables
+		int sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
 		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+		int sTime		= GLES20.glGetUniformLocation(prog, "time");
 		int sCol		= GLES20.glGetUniformLocation(prog, "vColor");
 		int sMVP		= GLES20.glGetUniformLocation(prog, "mMVP");
+		
+
+		Log.println(Log.DEBUG, "onDraw", "sTime = " + sTime);
+		Log.println(Log.DEBUG, "onDraw", "sPosOrigin = " + sPosOrigin);
+		Log.println(Log.DEBUG, "onDraw", "sPos = " + sPos);
+		Log.println(Log.DEBUG, "onDraw", "sCol = " + sCol);
+		Log.println(Log.DEBUG, "onDraw", "sMVP = " + sMVP);
+
 				
 		error = GLES20.glGetError();
 		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
@@ -72,6 +83,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		GLES20.glEnableVertexAttribArray(sPos);
 		GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.linePoints);
 		GLES20.glUniform4f(sCol, 0.7f, 0.7f, 0.1f, 1.0f);
+		GLES20.glUniform1f(sTime, 1.0f);
 		
 		// draw mesh 
 		int linesDrawn = 0;
@@ -83,9 +95,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		
 		// draw bubbles
 		GLES20.glLineWidth(3);
-		if(t>0) {
-
-		} else {
+		if(animation != Animation.BSPLINE_SPLIT) {
 			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.circVerts);
 			GLES20.glUniform4f(sCol, 0.70f, 0.65f, 1.0f, 1); // white with a hint of purple
 			GLES20.glDrawElements(GLES20.GL_LINES, spline.circEdgeCount, GLES20.GL_UNSIGNED_SHORT, spline.circEdge);
@@ -98,8 +108,13 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		
 		// draw touch input line
 		if(displayTouchLine) {
-//			Log.println(Log.INFO, "draw", "coords = " + )
-			GLES20.glUniform4f(sCol, 1, 0, 0, 1);
+			if(animation == Animation.MESHLINE_FADE) {
+				GLES20.glUniform4f(sCol, 1, 0, 0, t*(animationLength-t)*4/animationLength/animationLength);
+				GLES20.glLineWidth((int)  (t*(animationLength-t)*4/animationLength/animationLength*10));
+			} else {
+				GLES20.glUniform4f(sCol, 1, 0, 0, 1);
+				GLES20.glLineWidth(3);
+			}
 			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, touchLine);
 			GLES20.glDrawArrays(GLES20.GL_LINES, 0, 2);
 		}
@@ -109,10 +124,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		
 		// cleanup
 		GLES20.glDisableVertexAttribArray(sPos);
-		GLES20.glDeleteProgram(prog);
 		
 		// draw animation
-		if(t>0) {
+		if(animation == Animation.BSPLINE_SPLIT) {
 			// choose program
 			prog = shader.getAnimateProgram();
 			GLES20.glUseProgram(prog);
@@ -121,9 +135,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
 
 			// get shader variables
-			int sTime		= GLES20.glGetUniformLocation(prog, "time");
-			int sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
+			sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
 			sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+			sTime		= GLES20.glGetUniformLocation(prog, "time");
 			sCol		= GLES20.glGetUniformLocation(prog, "vColor");
 			sMVP		= GLES20.glGetUniformLocation(prog, "mMVP");
 			GLES20.glEnableVertexAttribArray(sPosOrigin);
@@ -156,11 +170,13 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			// cleanup
 			GLES20.glDisableVertexAttribArray(sPosOrigin);
 			GLES20.glDisableVertexAttribArray(sPos);
-			GLES20.glDeleteProgram(prog);
+
 		}
 
 		error = GLES20.glGetError();
 		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
+		
+
 	}
 
 	public void onSurfaceChanged(GL10 arg0, int width, int height) {
@@ -245,9 +261,10 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		displayTouchLine = false;
 	}
 	
-	public void startAnimation(float length) {
+	public void startAnimation(float length, Animation animation) {
 		startTime       = SystemClock.uptimeMillis();
 		animationLength = length;
+		this.animation  = animation;
 	}
 	
 	public float getTime() {
@@ -255,9 +272,12 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 //		Log.println(Log.DEBUG, "GetTime()", "startTime  = " + startTime);
 //		Log.println(Log.DEBUG, "GetTime()", "timeLapsed = " + timeLapsed);
 		if(timeLapsed >= animationLength) {
-			parent.setAnimation(false);
+			if(animation == Animation.MESHLINE_FADE)
+				terminateNewLine();
+			parent.setAnimation(Animation.NONE);
 			animationLength = 0.0f;
 			startTime = 0;
+			animation = Animation.NONE;
 			return -1;
 		}
 		return timeLapsed;

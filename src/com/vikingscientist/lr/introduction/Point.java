@@ -1,5 +1,7 @@
 package com.vikingscientist.lr.introduction;
 
+import android.util.FloatMath;
+
 public class Point {
 	
 	float x;
@@ -27,6 +29,19 @@ public class Point {
 			else
 				return Float.MAX_VALUE;
 		}
+	}
+	
+	public void multiply(float m) {
+		x *= m;
+		y *= m;
+	}
+	
+	public float dist2(Point p) {
+		return (p.x-x)*(p.x-x) + (p.y-y)*(p.y-y);
+	}
+	
+	public float dist(Point p) {
+		return FloatMath.sqrt(dist2(p));
 	}
 	
 	public Point copy() {
