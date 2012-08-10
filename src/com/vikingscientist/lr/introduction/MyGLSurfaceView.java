@@ -1,13 +1,17 @@
 package com.vikingscientist.lr.introduction;
 
 import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Color;
 import android.opengl.GLSurfaceView;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.Button;
+import android.widget.RadioButton;
+import android.widget.TextView;
 
 public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 
@@ -17,7 +21,13 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 	int width;
 	int height;
 	
+	RadioButton splineButton;
+	RadioButton lineButton;
+	TextView outKnot[] = new TextView[2];
+	
 	volatile boolean inAnimation;
+	
+	volatile long startTime = -1;
 	
 	public MyGLSurfaceView(Context context) {
 		super(context);
@@ -40,6 +50,15 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 		
 		// Render the view only when there is a change in the drawing data
 		setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+		
+		// set the right colors
+        Resources res = getResources();
+        renderer.cLine            = res.getColor(R.color.line);
+    	renderer.cNewLine         = res.getColor(R.color.newLine);
+    	renderer.cBspline         = res.getColor(R.color.bspline);
+    	renderer.cBsplineEdge     = res.getColor(R.color.bsplineEdge);
+    	renderer.cBsplineSelected = res.getColor(R.color.bsplineSelected);
+    	renderer.cSupport         = res.getColor(R.color.support);
 	}
 	
 	public void setAnimation(Animation animate) {
@@ -71,47 +90,86 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 		float aX = 0.05f*spline.getWidth()/0.9f;
 		float aY = 0.05f*spline.getHeight()/0.9f;
 		
-		if(e.getAction() == MotionEvent.ACTION_DOWN) {
-//			Log.println(Log.INFO, "onTouch DOWN", "x = " + x + "  y = " + y);
-			renderer.setNewLineStartPos(spline.snapToMesh(new Point(x*mX-aX, y*mY-aY)));
-		} else if(e.getAction() == MotionEvent.ACTION_MOVE) {
-//			Log.println(Log.INFO, "onTouch MOVE", "x = " + x + "  y = " + y);
 
-			if(spline.lastSnappedToUspan)
-				renderer.setNewLineEndY(y*mY-aY);
-			else
-				renderer.setNewLineEndX(x*mX-aX);
-			requestRender();
-		} else if(e.getAction() == MotionEvent.ACTION_UP) {
-			Point line[] = renderer.getNewLine();
-			Point snapEnd = spline.snapEndToMesh(line[1], !spline.lastSnappedToUspan);
-			renderer.setNewLineEndPos(snapEnd);
-			if(line[0].dist2(snapEnd) == 0.0f) {
-				renderer.terminateNewLine();
-				requestRender();
-			} else if(spline.insertLine(line[0], snapEnd)) {
-				renderer.terminateNewLine();
-				spline.buildBuffers();
-				setAnimation(Animation.BSPLINE_SPLIT);
-			} else {
-				setAnimation(Animation.MESHLINE_FADE);
-			}
+		if(lineButton.isChecked() ) {
+			// insert new-line input events
 			
-//			requestRender();
+			if(e.getAction() == MotionEvent.ACTION_DOWN) {
+	//			Log.println(Log.INFO, "onTouch DOWN", "x = " + x + "  y = " + y);
+				renderer.setNewLineStartPos(spline.snapToMesh(new Point(x*mX-aX, y*mY-aY)));
+			} else if(e.getAction() == MotionEvent.ACTION_MOVE) {
+	//			Log.println(Log.INFO, "onTouch MOVE", "x = " + x + "  y = " + y);
+	
+				if(spline.lastSnappedToUspan)
+					renderer.setNewLineEndY(y*mY-aY);
+				else
+					renderer.setNewLineEndX(x*mX-aX);
+				requestRender();
+			} else if(e.getAction() == MotionEvent.ACTION_UP) {
+				Point line[] = renderer.getNewLine();
+				Point snapEnd = spline.snapEndToMesh(line[1], !spline.lastSnappedToUspan);
+				renderer.setNewLineEndPos(snapEnd);
+				if(line[0].dist2(snapEnd) == 0.0f) {
+					renderer.terminateNewLine();
+					requestRender();
+				} else if(spline.insertLine(line[0], snapEnd)) {
+					renderer.terminateNewLine();
+					spline.buildBuffers();
+					setAnimation(Animation.BSPLINE_SPLIT);
+				} else {
+					setAnimation(Animation.MESHLINE_FADE);
+				}
+				
+			}
+		} else if(splineButton.isChecked()) {
+			// view B-spline input events
+			if(e.getAction() == MotionEvent.ACTION_DOWN) {
+				Bspline b = spline.getNearestSpline(new Point(x*mX-aX, y*mY-aY));
+				outKnot[0].setText(b.getKnotU());
+				outKnot[1].setText(b.getKnotV());
+				renderer.setSelectedSpline(b);
+				requestRender();
+				startTime = SystemClock.uptimeMillis();
+			} else if(e.getAction() == MotionEvent.ACTION_MOVE) {
+				long timeLapsed = (SystemClock.uptimeMillis() - startTime);
+				if(timeLapsed > 1500) {
+					Log.println(Log.DEBUG, "MyGLSurface::onTouchEvent", "holding for more than 1.5 sec");
+				}
+			} else if(e.getAction() == MotionEvent.ACTION_UP) {
+				startTime = -1;
+			}
 		}
 		
 		return true;
 	}
+	
+	public void setSplineButton(RadioButton b) {
+		splineButton = b;
+	}
+	
+	public void setLineButton(RadioButton b) {
+		lineButton = b;
+	}
+	
+	public void setOutKnot(TextView u, TextView v) {
+		outKnot[0] = u;
+		outKnot[1] = v;
+	}
 
 	public void onClick(View v) {
-		if(v == findViewById(R.id.bLine)) {
+		if(v == splineButton) {
 			Log.println(Log.DEBUG, "onClick()", "Bspline button clicked");
-		} else if(v == findViewById(R.id.bLine)) {
+			renderer.terminateNewLine();
+			requestRender();
+		} else if(v == lineButton) {
 			Log.println(Log.DEBUG, "onClick()", "Meshline button clicked");
+			outKnot[0].setText("");
+			outKnot[1].setText("");
+			renderer.unselectSpline();
+			requestRender();
 		} else {
 			Log.println(Log.DEBUG, "onClick()", "Some button clicked");
 		}
-		
 	}
 	
 

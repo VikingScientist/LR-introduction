@@ -96,6 +96,22 @@ public class Bspline {
 		return knotV[knotV.length-1] - knotV[0];
 	}
 	
+	public String getKnotU() {
+		String ans = "";
+		for(int i=0; i<knotU.length-1; i++)
+			ans += knotU[i] + " ";
+		ans += knotU[knotU.length-1];
+		return ans;
+	}
+	
+	public String getKnotV() {
+		String ans = "";
+		for(int i=0; i<knotV.length-1; i++)
+			ans += knotV[i] + " ";
+		ans += knotV[knotV.length-1];
+		return ans;
+	}
+	
 	public boolean hasLine(MeshLine m) {
 		int hits = 0;
 		if(m.span_u) {

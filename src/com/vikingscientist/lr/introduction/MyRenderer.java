@@ -3,10 +3,13 @@ package com.vikingscientist.lr.introduction;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import android.content.res.Resources;
+import android.graphics.Color;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
@@ -25,16 +28,29 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	FloatBuffer unitSquare;
 	FloatBuffer touchLine;
+	ShortBuffer selectedSpline;
+	FloatBuffer supportVertices;
+	ShortBuffer supportLines;
+	private int supportLinesSize;
 	
-	private boolean displayTouchLine = false;
+	private boolean displayTouchLine      = false;
+	private boolean displaySelectedSpline = false;
 	
 	private volatile float    animationLength = 0.0f;
 	private volatile long     startTime       = 0;
 	private volatile Animation animation       = Animation.NONE;
 	
+	int cLine;
+	int cNewLine;
+	int cBspline;
+	int cBsplineEdge;
+	int cBsplineSelected;
+	int cSupport;
+
 	public MyRenderer(LRSpline spline, MyGLSurfaceView parent) {
 		this.parent = parent;
 		this.spline = spline;
+
 	}
 	
 	public void onDrawFrame(GL10 arg0) {
@@ -82,7 +98,10 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		// setup the color
 		GLES20.glEnableVertexAttribArray(sPos);
 		GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.linePoints);
-		GLES20.glUniform4f(sCol, 0.7f, 0.7f, 0.1f, 1.0f);
+		GLES20.glUniform4f(sCol, Color.red(  cLine) /256.0f,
+                                 Color.green(cLine) /256.0f,
+                                 Color.blue( cLine) /256.0f,
+                                 Color.alpha(cLine) /256.0f);
 		GLES20.glUniform1f(sTime, 1.0f);
 		
 		// draw mesh 
@@ -92,15 +111,43 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			GLES20.glDrawArrays(GLES20.GL_LINES, linesDrawn*2, spline.getMultCount(i+1)*2);
 			linesDrawn += spline.getMultCount(i+1);
 		}
+		if(displaySelectedSpline) {
+			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, supportVertices);
+			GLES20.glUniform4f(sCol, Color.red(  cSupport)/256.0f,
+					                 Color.green(cSupport)/256.0f,
+					                 Color.blue( cSupport)/256.0f,
+					                 Color.alpha(cSupport)/256.0f); 
+			GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+			GLES20.glUniform4f(sCol, Color.red(  cBsplineSelected)/256.0f,
+                                     Color.green(cBsplineSelected)/256.0f,
+                                     Color.blue( cBsplineSelected)/256.0f,
+                                     Color.alpha(cBsplineSelected)/256.0f);
+			GLES20.glLineWidth(3);
+			GLES20.glDrawElements(GLES20.GL_LINES, supportLinesSize, GLES20.GL_UNSIGNED_SHORT, supportLines);
+		}
 		
 		// draw bubbles
 		GLES20.glLineWidth(3);
 		if(animation != Animation.BSPLINE_SPLIT) {
 			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.circVerts);
-			GLES20.glUniform4f(sCol, 0.70f, 0.65f, 1.0f, 1); // white with a hint of purple
+			GLES20.glUniform4f(sCol, Color.red(  cBsplineEdge)/256.0f,
+                                     Color.green(cBsplineEdge)/256.0f,
+                                     Color.blue( cBsplineEdge)/256.0f,
+                                     Color.alpha(cBsplineEdge)/256.0f);
 			GLES20.glDrawElements(GLES20.GL_LINES, spline.circEdgeCount, GLES20.GL_UNSIGNED_SHORT, spline.circEdge);
-			GLES20.glUniform4f(sCol, 0.5686275f, 0.49411765f, 1.0f, 1.0f); // blue purple color
+			GLES20.glUniform4f(sCol, Color.red(  cBspline)/256.0f,
+					                 Color.green(cBspline)/256.0f,
+					                 Color.blue( cBspline)/256.0f,
+					                 Color.alpha(cBspline)/256.0f);
 			GLES20.glDrawElements(GLES20.GL_TRIANGLES, spline.circIntCount, GLES20.GL_UNSIGNED_SHORT, spline.circInterior);
+		}
+		if(displaySelectedSpline) {
+			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.circVerts);
+			GLES20.glUniform4f(sCol, Color.red(  cBsplineSelected)/256.0f,
+					                 Color.green(cBsplineSelected)/256.0f,
+					                 Color.blue( cBsplineSelected)/256.0f,
+					                 Color.alpha(cBsplineSelected)/256.0f);
+			GLES20.glDrawElements(GLES20.GL_TRIANGLES, LRSpline.CIRCLE_POINTS*3, GLES20.GL_UNSIGNED_SHORT, selectedSpline);
 		}
 
 		error = GLES20.glGetError();
@@ -109,10 +156,16 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		// draw touch input line
 		if(displayTouchLine) {
 			if(animation == Animation.MESHLINE_FADE) {
-				GLES20.glUniform4f(sCol, 1, 0, 0, t*(animationLength-t)*4/animationLength/animationLength);
+				GLES20.glUniform4f(sCol, Color.red(  cNewLine)/256.0f,
+                                         Color.green(cNewLine)/256.0f,
+                                         Color.blue( cNewLine)/256.0f,
+                                         Color.alpha(cNewLine) * t*(animationLength-t)*4/animationLength/animationLength/256.0f);
 				GLES20.glLineWidth((int)  (t*(animationLength-t)*4/animationLength/animationLength*10));
 			} else {
-				GLES20.glUniform4f(sCol, 1, 0, 0, 1);
+				GLES20.glUniform4f(sCol, Color.red(  cNewLine)/256.0f,
+		                                 Color.green(cNewLine)/256.0f,
+		                                 Color.blue( cNewLine)/256.0f,
+		                                 Color.alpha(cNewLine)/256.0f);
 				GLES20.glLineWidth(3);
 			}
 			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, touchLine);
@@ -157,14 +210,21 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			GLES20.glVertexAttribPointer(sPos,       2, GLES20.GL_FLOAT, false, 0, spline.circVerts);
 			GLES20.glVertexAttribPointer(sPosOrigin, 2, GLES20.GL_FLOAT, false, 0, spline.circVertsOrigin);
 			GLES20.glUniform1f(sTime, t/animationLength);
-			GLES20.glUniform4f(sCol, 0.70f, 0.65f, 1.0f, 1); // white with a hint of purple
+
+			GLES20.glUniform4f(sCol, Color.red(  cBsplineEdge)/256.0f,
+	                                 Color.green(cBsplineEdge)/256.0f,
+	                                 Color.blue( cBsplineEdge)/256.0f,
+	                                 Color.alpha(cBsplineEdge)/256.0f);
 			GLES20.glDrawElements(GLES20.GL_LINES, spline.circEdgeCount, GLES20.GL_UNSIGNED_SHORT, spline.circEdge);
 
 			error = GLES20.glGetError();
 			Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
 			
 			// draw interior
-			GLES20.glUniform4f(sCol, 0.5686275f, 0.49411765f, 1.0f, 1.0f); // blue purple color
+			GLES20.glUniform4f(sCol, Color.red(  cBspline)/256.0f,
+	                                 Color.green(cBspline)/256.0f,
+	                                 Color.blue( cBspline)/256.0f,
+	                                 Color.alpha(cBspline)/256.0f);
 			GLES20.glDrawElements(GLES20.GL_TRIANGLES, spline.circIntCount, GLES20.GL_UNSIGNED_SHORT, spline.circInterior);
 			
 			// cleanup
@@ -206,11 +266,27 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		unitSquare.put(1); unitSquare.put(1);
 		unitSquare.position(0);
 		
-		// debug drawing unit square
+		supportLinesSize =  (spline.getP(0)+spline.getP(1)+4)*2;
 		bb = ByteBuffer.allocateDirect(2*2*4);
 		bb.order(ByteOrder.nativeOrder());
 		touchLine = bb.asFloatBuffer();
+		
+		bb = ByteBuffer.allocateDirect(2*LRSpline.CIRCLE_POINTS*3);
+		bb.order(ByteOrder.nativeOrder());
+		selectedSpline = bb.asShortBuffer();
+		
+		bb = ByteBuffer.allocateDirect((spline.getP(0)+2)*(spline.getP(1)+2)*2*4);
+		bb.order(ByteOrder.nativeOrder());
+		supportVertices = bb.asFloatBuffer();
+		
+		bb = ByteBuffer.allocateDirect(2 * supportLinesSize);
+		bb.order(ByteOrder.nativeOrder());
+		supportLines = bb.asShortBuffer();
+
 		touchLine.position(0);
+		selectedSpline.position(0);
+		supportVertices.position(0);
+		supportLines.position(0);
 	}
 	
 	public void setNewLineEndPos(Point p) {
@@ -261,6 +337,54 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		displayTouchLine = false;
 	}
 	
+	public void setSelectedSpline(Bspline b) {
+		int globI = spline.getIndexOf(b);
+		if(globI < 0) {
+			Log.println(Log.ERROR, "MyRenderer::setSelectedSpline", "Bspline not found in LRSpline object");
+			return;
+		}
+		int nSplines = spline.getNSplines();
+		for(int i=0; i<LRSpline.CIRCLE_POINTS; i++) {
+			selectedSpline.put((short) globI);
+			selectedSpline.put((short) (nSplines + LRSpline.CIRCLE_POINTS*globI +   i                         ));
+			selectedSpline.put((short) (nSplines + LRSpline.CIRCLE_POINTS*globI + (i+1)%LRSpline.CIRCLE_POINTS));
+		}
+		int p1 = spline.getP(0);
+		int p2 = spline.getP(1);
+		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(  0 ));
+		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(  0 ));
+		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(p2+1));
+		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(p2+1));
+		for(int i=1; i<p1+1; i++) {
+			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(  0 ));
+			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(p2+1));
+		}
+		for(int i=1; i<p2+1; i++) {
+			supportVertices.put(b.getKnotU( 0  )); supportVertices.put(b.getKnotV( i ));
+			supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV( i ));
+		}
+		for(int i=0; i<supportLinesSize-4; i++)
+			supportLines.put((short) i);
+		supportLines.put((short) 0);
+		supportLines.put((short) 2);
+		supportLines.put((short) 1);
+		supportLines.put((short) 3);
+		
+		supportVertices.put(b.getKnotU(0));
+		supportVertices.put(b.getKnotV(0));
+
+		selectedSpline.position(0);
+		supportVertices.position(0);
+		supportLines.position(0);
+		displaySelectedSpline = true;
+	}
+	
+	public void unselectSpline() {
+		displaySelectedSpline = false;
+	}
+	
+	
+	
 	public void startAnimation(float length, Animation animation) {
 		startTime       = SystemClock.uptimeMillis();
 		animationLength = length;
@@ -272,8 +396,12 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 //		Log.println(Log.DEBUG, "GetTime()", "startTime  = " + startTime);
 //		Log.println(Log.DEBUG, "GetTime()", "timeLapsed = " + timeLapsed);
 		if(timeLapsed >= animationLength) {
-			if(animation == Animation.MESHLINE_FADE)
+			if(animation == Animation.MESHLINE_FADE) {
 				terminateNewLine();
+			} else if(animation == Animation.BSPLINE_SPLIT) {
+				spline.terminateAnimation();
+				spline.buildBuffers();
+			}
 			parent.setAnimation(Animation.NONE);
 			animationLength = 0.0f;
 			startTime = 0;

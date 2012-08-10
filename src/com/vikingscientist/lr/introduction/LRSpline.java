@@ -99,6 +99,13 @@ public class LRSpline {
 		return vMax;
 	}
 	
+	public int getP(int i) {
+		if(i == 0)
+			return p1;
+		else
+			return p2;
+	}
+	
 	public void buildBuffers() {
 		// allocate new buffers
 		int nBsplines = functions.size() + animationSplines.size();
@@ -226,6 +233,34 @@ public class LRSpline {
 		return multCount[mult-1];
 	}
 	
+	public Bspline getNearestSpline(Point p) {
+		float maxDist = Float.MAX_VALUE;
+		Bspline bestBet = null;
+		for(Bspline b : functions) {
+			float dist = p.dist2(b.getGrevillePoint()); 
+			if(dist < maxDist) {
+				maxDist = dist;
+				bestBet = b;
+			}
+		}
+		return bestBet;
+	}
+	
+	public int getIndexOf(Bspline spline) {
+		int i=0;
+		for(Bspline b : functions) {
+			if(b == spline)
+				return i;
+			else
+				i++;
+		}
+		return -1;
+	}
+	
+	public int getNSplines() {
+		return functions.size();
+	}
+	
 	public Point snapEndToMesh(Point p, boolean spanU) {
 		int i=0;
 		float minDist = Float.MAX_VALUE;
@@ -304,6 +339,10 @@ public class LRSpline {
 		} else {
 			return new Point(lines.get(minI).constPar, snapVal);
 		}
+	}
+	
+	public void terminateAnimation() {
+		animationSplines.clear();
 	}
 	
 	public boolean insertLine(Point p1, Point p2) {

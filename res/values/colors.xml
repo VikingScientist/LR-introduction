@@ -1,0 +1,10 @@
+<resources>
+    
+    <color name="line">            #ffffff96 </color>
+    <color name="newLine">         #ff00 </color>
+    <color name="bspline">         #9c9f </color>
+    <color name="bsplineEdge">     #ffcf </color>
+    <color name="bsplineSelected"> #f6f6 </color>
+    <color name="support">         #96f6 </color>
+    
+</resources>

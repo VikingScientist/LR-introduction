@@ -7,5 +7,7 @@
     <string name="bspline">Bspline</string>
     <string name="line">Line</string>
     <string name="quit">Quit</string>
+    <string name="outKnotU">u-knot</string>
+    <string name="outKnotV">v-knot</string>
 
 </resources>

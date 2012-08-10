@@ -22,21 +22,48 @@
     	android:layout_height="match_parent"
     	android:background="#000000" >
     	
-        <Button
-            android:id="@+id/bLine"
-        	android:layout_width="wrap_content"
-        	android:layout_height="wrap_content"
-        	android:text="@string/line" />
-        <Button
-            android:id="@+id/bSpline"
-        	android:layout_width="wrap_content"
-        	android:layout_height="wrap_content"
-        	android:text="@string/bspline" />
+        <RadioGroup
+	       	android:layout_width="wrap_content"
+	       	android:layout_height="wrap_content"> 
+	       	
+	        <RadioButton
+	            android:id="@+id/bLine"
+	        	android:layout_width="wrap_content"
+	        	android:layout_height="wrap_content"
+	        	android:checked="true"
+	        	android:textColor="#FFFFFF"
+	        	android:text="@string/line" />
+	        <RadioButton
+	            android:id="@+id/bSpline"
+	        	android:layout_width="wrap_content"
+	        	android:layout_height="wrap_content"
+	        	android:textColor="#FFFFFF"
+	        	android:text="@string/bspline" />
+        </RadioGroup>
+        <TextView
+            android:id="@+id/outKnotU"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:selectable="false"
+            android:textColor="#CCCCCC"
+            android:hint="@string/outKnotU"
+            />
+        <TextView
+            android:id="@+id/outKnotV"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:selectable="false"
+            android:textColor="#CCCCCC"
+            android:hint="@string/outKnotV"
+            />
+
         <Button
             android:id="@+id/bQuit"
-        	android:layout_width="wrap_content"
-        	android:layout_height="wrap_content"
-        	android:text="@string/quit" />
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:text="@string/quit" />
+
     </LinearLayout>
     
     <com.vikingscientist.lr.introduction.MyGLSurfaceView
