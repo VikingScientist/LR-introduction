@@ -2,7 +2,9 @@ package com.vikingscientist.lr.introduction;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.opengl.GLSurfaceView;
 import android.os.SystemClock;
 import android.util.AttributeSet;
@@ -13,7 +15,7 @@ import android.view.View.OnClickListener;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
-public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
+public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, SensorEventListener {
 
 	MyRenderer renderer; 
 	LRSpline spline = new LRSpline(2, 2, 4, 3);
@@ -26,6 +28,8 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 	TextView outKnot[] = new TextView[2];
 	
 	volatile boolean inAnimation;
+	
+	private boolean inPerspectiveView  = false;
 	
 	volatile long startTime = -1;
 	
@@ -62,22 +66,38 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 	}
 	
 	public void setAnimation(Animation animate) {
+		
 		if(animate == Animation.BSPLINE_SPLIT) {
 			renderer.startAnimation(2.0f, animate);
-			inAnimation = true;
 			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+			
 		} else if(animate == Animation.MESHLINE_FADE) {
 			renderer.startAnimation(1.0f, animate);
-			inAnimation = true;
 			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+			
+		} else if(animate == Animation.PERSPECTIVE) {
+			renderer.startAnimation(2.5f, animate);
+			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+
+		} else if(animate == Animation.PERSPECTIVE) {
+			renderer.startAnimation(2.5f, animate);
+			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+			
+		} else if(animate == Animation.PERSPECTIVE_REVERSE) {
+			renderer.startAnimation(2.5f, animate);
+			setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+			
 		} else if(animate == Animation.NONE) {
 			inAnimation = false;
-			setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+			if(!inPerspectiveView) 
+				setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+			return; // to not set inAnimation=true
 		}
+		inAnimation = true;
 	}
 	
 	public boolean onTouchEvent(MotionEvent e) {
-		if(inAnimation)
+		if(inAnimation || inPerspectiveView)
 			return true;
 		float x = e.getX();
 		float y = e.getY();
@@ -134,6 +154,8 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 				long timeLapsed = (SystemClock.uptimeMillis() - startTime);
 				if(timeLapsed > 1500) {
 					Log.println(Log.DEBUG, "MyGLSurface::onTouchEvent", "holding for more than 1.5 sec");
+					setAnimation(Animation.PERSPECTIVE);
+					inPerspectiveView = true;
 				}
 			} else if(e.getAction() == MotionEvent.ACTION_UP) {
 				startTime = -1;
@@ -169,6 +191,40 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 			requestRender();
 		} else {
 			Log.println(Log.DEBUG, "onClick()", "Some button clicked");
+		}
+	}
+
+	public boolean onBackPressed() {
+	   Log.println(Log.DEBUG, "CDA", "onBackPressed Called");
+	   if(inPerspectiveView) {
+		   setAnimation(Animation.PERSPECTIVE_REVERSE);
+		   inPerspectiveView = false;
+		   return true;
+	   }
+	   return false;
+	}
+	
+
+	public void onAccuracyChanged(Sensor arg0, int arg1) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void onSensorChanged(SensorEvent event) {
+//		if(!inPerspectiveView)
+//			return;
+		if (event.sensor.getType()==Sensor.TYPE_ACCELEROMETER) {
+			float nx=event.values[0];
+            float ny=event.values[1];
+            float nz=event.values[2];
+//            Log.println(Log.DEBUG, "sensor ACCELEROMETER event", String.format("normal = [%.3f, %.3f, %.3f]", nx,ny,nz));
+            renderer.setPhoneNormal(nx, ny, nz);
+		} else if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+			float nx=event.values[0];
+            float ny=event.values[1];
+            float nz=event.values[2];
+//            Log.println(Log.DEBUG, "sensor MAGNETIC event", String.format("normal = [%.3f, %.3f, %.3f]", nx,ny,nz));
+            renderer.setMagnetism(nx, ny, nz);
 		}
 	}
 	

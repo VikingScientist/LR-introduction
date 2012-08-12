@@ -8,12 +8,14 @@ import java.nio.ShortBuffer;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-import android.content.res.Resources;
 import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.os.SystemClock;
+import android.util.FloatMath;
 import android.util.Log;
 
 
@@ -26,7 +28,6 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	float MVPmatrix[] = new float[16];
 	float tmpmatrix[] = new float[16];
 	
-	FloatBuffer unitSquare;
 	FloatBuffer touchLine;
 	ShortBuffer selectedSpline;
 	FloatBuffer supportVertices;
@@ -35,10 +36,20 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	private boolean displayTouchLine      = false;
 	private boolean displaySelectedSpline = false;
+	private boolean inPerspectiveView     = false;
 	
 	private volatile float    animationLength = 0.0f;
 	private volatile long     startTime       = 0;
-	private volatile Animation animation       = Animation.NONE;
+	private volatile Animation animation      = Animation.NONE;
+	
+	// cellphone normal
+	float nx;
+	float ny;
+	float nz;
+	// magnetism
+	float mx;
+	float my;
+	float mz;
 	
 	int cLine;
 	int cNewLine;
@@ -91,13 +102,31 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		
 		// setup the model-view projection matrix
 		Matrix.setIdentityM(MVPmatrix, 0);
+		if(inPerspectiveView) {
+			float dt = 0.0f;
+			double littleR = FloatMath.sqrt(nx*nx+ny*ny);
+			double theta   = Math.atan2(my,mx); // from magnetic compass
+			double phi     = Math.atan2(littleR, nz);
+			theta *= 360 / 2 / Math.PI; // radians to degrees
+			phi   *= 360 / 2 / Math.PI;
+			if(animation == Animation.NONE)
+				dt = 1.0f;
+			else if(animation == Animation.PERSPECTIVE)
+				dt = t/animationLength;			
+			else if(animation == Animation.PERSPECTIVE_REVERSE)
+				dt = 1.0f - t/animationLength;
+			
+			Matrix.rotateM(MVPmatrix, 0, (float) -theta*dt, 0, 0, 1);
+			Matrix.rotateM(MVPmatrix, 0, (float) -phi*dt,   1, 0, 0);	
+			Log.println(Log.DEBUG, "setting MVP", "Phi = " + phi + "  theta = " + theta);
+		}
 		Matrix.translateM(MVPmatrix, 0, -0.9f, -0.9f, 0);
 		Matrix.scaleM(MVPmatrix, 0, 1.8f/spline.getWidth(), 1.8f/spline.getHeight(), 0);
 		GLES20.glUniformMatrix4fv(sMVP, 1, false, MVPmatrix, 0);
 
 		// setup the color
 		GLES20.glEnableVertexAttribArray(sPos);
-		GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.linePoints);
+		GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.linePoints);
 		GLES20.glUniform4f(sCol, Color.red(  cLine) /256.0f,
                                  Color.green(cLine) /256.0f,
                                  Color.blue( cLine) /256.0f,
@@ -112,7 +141,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			linesDrawn += spline.getMultCount(i+1);
 		}
 		if(displaySelectedSpline) {
-			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, supportVertices);
+			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, supportVertices);
 			GLES20.glUniform4f(sCol, Color.red(  cSupport)/256.0f,
 					                 Color.green(cSupport)/256.0f,
 					                 Color.blue( cSupport)/256.0f,
@@ -129,7 +158,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		// draw bubbles
 		GLES20.glLineWidth(3);
 		if(animation != Animation.BSPLINE_SPLIT) {
-			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.circVerts);
+			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.circVerts);
 			GLES20.glUniform4f(sCol, Color.red(  cBsplineEdge)/256.0f,
                                      Color.green(cBsplineEdge)/256.0f,
                                      Color.blue( cBsplineEdge)/256.0f,
@@ -142,7 +171,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			GLES20.glDrawElements(GLES20.GL_TRIANGLES, spline.circIntCount, GLES20.GL_UNSIGNED_SHORT, spline.circInterior);
 		}
 		if(displaySelectedSpline) {
-			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, spline.circVerts);
+			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.circVerts);
 			GLES20.glUniform4f(sCol, Color.red(  cBsplineSelected)/256.0f,
 					                 Color.green(cBsplineSelected)/256.0f,
 					                 Color.blue( cBsplineSelected)/256.0f,
@@ -168,7 +197,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		                                 Color.alpha(cNewLine)/256.0f);
 				GLES20.glLineWidth(3);
 			}
-			GLES20.glVertexAttribPointer(sPos, 2, GLES20.GL_FLOAT, false, 0, touchLine);
+			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, touchLine);
 			GLES20.glDrawArrays(GLES20.GL_LINES, 0, 2);
 		}
 
@@ -207,8 +236,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			
 			// setup variables and draw edge
 			GLES20.glUniformMatrix4fv(sMVP, 1, false, MVPmatrix, 0);
-			GLES20.glVertexAttribPointer(sPos,       2, GLES20.GL_FLOAT, false, 0, spline.circVerts);
-			GLES20.glVertexAttribPointer(sPosOrigin, 2, GLES20.GL_FLOAT, false, 0, spline.circVertsOrigin);
+			GLES20.glVertexAttribPointer(sPos,       3, GLES20.GL_FLOAT, false, 0, spline.circVerts);
+			GLES20.glVertexAttribPointer(sPosOrigin, 3, GLES20.GL_FLOAT, false, 0, spline.circVertsOrigin);
 			GLES20.glUniform1f(sTime, t/animationLength);
 
 			GLES20.glUniform4f(sCol, Color.red(  cBsplineEdge)/256.0f,
@@ -256,18 +285,10 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		// build all spline object stuff
 		spline.buildBuffers();
 		
-		// debug drawing unit square
-		ByteBuffer bb = ByteBuffer.allocateDirect(2*4*4);
-		bb.order(ByteOrder.nativeOrder());
-		unitSquare = bb.asFloatBuffer();
-		unitSquare.put(0); unitSquare.put(0);
-		unitSquare.put(1); unitSquare.put(0);
-		unitSquare.put(0); unitSquare.put(1);
-		unitSquare.put(1); unitSquare.put(1);
-		unitSquare.position(0);
-		
+		// build buffers for support drawing
+		ByteBuffer bb ;
 		supportLinesSize =  (spline.getP(0)+spline.getP(1)+4)*2;
-		bb = ByteBuffer.allocateDirect(2*2*4);
+		bb = ByteBuffer.allocateDirect(2*3*4);
 		bb.order(ByteOrder.nativeOrder());
 		touchLine = bb.asFloatBuffer();
 		
@@ -275,7 +296,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		bb.order(ByteOrder.nativeOrder());
 		selectedSpline = bb.asShortBuffer();
 		
-		bb = ByteBuffer.allocateDirect((spline.getP(0)+2)*(spline.getP(1)+2)*2*4);
+		bb = ByteBuffer.allocateDirect((spline.getP(0)+2)*(spline.getP(1)+2)*3*4);
 		bb.order(ByteOrder.nativeOrder());
 		supportVertices = bb.asFloatBuffer();
 		
@@ -291,30 +312,36 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	public void setNewLineEndPos(Point p) {
 //		Log.println(Log.INFO, "setTouchLine", "p1 = (" + x1 + ", " + y1 + ")   p2 =(" + x2 + ", " + y2 + ")   " + display);
-		touchLine.position(2);
+		touchLine.position(3);
 		touchLine.put(p.x);
 		touchLine.put(p.y);
+		touchLine.put(0);
 		touchLine.position(0);
 	}
 	
 	public void setNewLineEndX(float x) {
 		float x1 = touchLine.get();
 		float y1 = touchLine.get();
+		float z1 = touchLine.get();
 		touchLine.put(x);
 		touchLine.put(y1);
+		touchLine.put(0);
 		touchLine.position(0);
 	}
 	public void setNewLineEndY(float y) {
 		float x1 = touchLine.get();
 		float y1 = touchLine.get();
+		float z1 = touchLine.get();
 		touchLine.put(x1);
 		touchLine.put(y);
+		touchLine.put(0);
 		touchLine.position(0);
 	}
 	
 	public void setNewLineStartPos(Point p) {
 		touchLine.put(p.x);
 		touchLine.put(p.y);
+		touchLine.put(0);
 		touchLine.position(0);
 		displayTouchLine = true;
 	}
@@ -323,6 +350,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		Point ans[] = new Point[2];
 		float x1 = touchLine.get();
 		float y1 = touchLine.get();
+		float z1 = touchLine.get();
 		float x2 = touchLine.get();
 		float y2 = touchLine.get();
 		touchLine.position(0);
@@ -351,17 +379,17 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		}
 		int p1 = spline.getP(0);
 		int p2 = spline.getP(1);
-		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(  0 ));
-		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(  0 ));
-		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(p2+1));
-		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(p2+1));
+		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
+		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
+		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
+		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
 		for(int i=1; i<p1+1; i++) {
-			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(  0 ));
-			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(p2+1));
+			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
+			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
 		}
 		for(int i=1; i<p2+1; i++) {
-			supportVertices.put(b.getKnotU( 0  )); supportVertices.put(b.getKnotV( i ));
-			supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV( i ));
+			supportVertices.put(b.getKnotU( 0  )); supportVertices.put(b.getKnotV( i )); supportVertices.put(0);
+			supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV( i )); supportVertices.put(0);
 		}
 		for(int i=0; i<supportLinesSize-4; i++)
 			supportLines.put((short) i);
@@ -370,8 +398,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		supportLines.put((short) 1);
 		supportLines.put((short) 3);
 		
-		supportVertices.put(b.getKnotU(0));
-		supportVertices.put(b.getKnotV(0));
+//		supportVertices.put(b.getKnotU(0));
+//		supportVertices.put(b.getKnotV(0));
+//		supportVertices.put(0);
 
 		selectedSpline.position(0);
 		supportVertices.position(0);
@@ -383,12 +412,17 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		displaySelectedSpline = false;
 	}
 	
+	public void finishPerspective() {
+		inPerspectiveView = false;
+	}
 	
 	
 	public void startAnimation(float length, Animation animation) {
 		startTime       = SystemClock.uptimeMillis();
 		animationLength = length;
 		this.animation  = animation;
+		if(animation == Animation.PERSPECTIVE)
+			inPerspectiveView = true;
 	}
 	
 	public float getTime() {
@@ -401,6 +435,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			} else if(animation == Animation.BSPLINE_SPLIT) {
 				spline.terminateAnimation();
 				spline.buildBuffers();
+			} else if(animation == Animation.PERSPECTIVE_REVERSE) {
+				finishPerspective();
 			}
 			parent.setAnimation(Animation.NONE);
 			animationLength = 0.0f;
@@ -410,6 +446,17 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		}
 		return timeLapsed;
 	}
-
+	
+	public void setPhoneNormal(float nx, float ny, float nz) {
+		this.nx = nx;
+		this.ny = ny;
+		this.nz = nz;
+	}
+	
+	public void setMagnetism(float mx, float my, float mz) {
+		this.mx = mx;
+		this.my = my;
+		this.mz = mz;
+	}
 	
 }

@@ -1,7 +1,12 @@
 package com.vikingscientist.lr.introduction;
 
 import android.app.Activity;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -13,6 +18,7 @@ public class MainActivity extends Activity implements OnClickListener {
 
 	MyGLSurfaceView surfaceView;
 	Button quit;
+	SensorManager sensors;
 	
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -34,6 +40,7 @@ public class MainActivity extends Activity implements OnClickListener {
         surfaceView.setLineButton(insertLines);
         surfaceView.setOutKnot(outKnotU, outKnotV);
         
+        sensors = (SensorManager) getSystemService(SENSOR_SERVICE);
     }
 
     @Override
@@ -41,12 +48,39 @@ public class MainActivity extends Activity implements OnClickListener {
         getMenuInflater().inflate(R.menu.activity_main, menu);
         return true;
     }
+    
+    public void onResume() {
+    	super.onResume();
+    	sensors.registerListener(surfaceView, sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
+    	sensors.registerListener(surfaceView, sensors.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_NORMAL);
+    }
+    
+    public void onPause() {
+    	super.onPause();
+    	sensors.unregisterListener(surfaceView);
+    }
+    
+    public void onStop() {
+    	super.onStop();
+    	Log.println(Log.DEBUG, "onStop", "LOOK AT MEEEE!!!");
+    }
+    
+    public void onDestroy() {
+    	super.onDestroy();
+    	Log.println(Log.DEBUG, "onDestroy", "LOOK AT MEEEE!!!");
+    }
 
 	public void onClick(View v) {
 		if(v == quit) {
 			finish();
 		}
 	}
+	
+	public void onBackPressed() {
+		if(!surfaceView.onBackPressed()) 
+			super.onBackPressed();
+	}
+
 
     
 }

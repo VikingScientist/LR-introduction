@@ -110,11 +110,11 @@ public class LRSpline {
 		// allocate new buffers
 		int nBsplines = functions.size() + animationSplines.size();
 		
-		ByteBuffer bb = ByteBuffer.allocateDirect(lines.size()*4*4);
+		ByteBuffer bb = ByteBuffer.allocateDirect(lines.size()*4*6);
 		bb.order(ByteOrder.nativeOrder());
 		linePoints = bb.asFloatBuffer();
 		
-		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*2*nBsplines);
+		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*3*nBsplines);
 		bb.order(ByteOrder.nativeOrder());
 		circVerts = bb.asFloatBuffer();
 		
@@ -126,7 +126,7 @@ public class LRSpline {
 		bb.order(ByteOrder.nativeOrder());
 		circEdge = bb.asShortBuffer();
 		
-		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*2*nBsplines);
+		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*3*nBsplines);
 		bb.order(ByteOrder.nativeOrder());
 		circVertsOrigin = bb.asFloatBuffer();
 		
@@ -144,13 +144,17 @@ public class LRSpline {
 				if(m.span_u) {
 					linePoints.put(m.start);
 					linePoints.put(m.constPar);
+					linePoints.put(0);
 					linePoints.put(m.stop);
 					linePoints.put(m.constPar);
+					linePoints.put(0);
 				} else {
 					linePoints.put(m.constPar);
 					linePoints.put(m.start);
+					linePoints.put(0);
 					linePoints.put(m.constPar);
 					linePoints.put(m.stop);
+					linePoints.put(0);
 				}
 				multCount[i-1]++;
 			}
@@ -192,8 +196,10 @@ public class LRSpline {
 		Point p = b.getGrevillePoint();
 		circVerts.put(p.x);
 		circVerts.put(p.y);
+		circVerts.put(0);
 		circVertsOrigin.put(b.origin.x);
 		circVertsOrigin.put(b.origin.y);
+		circVertsOrigin.put(0);
 	}
 	
 	public void putCircumfurencePoint(Bspline b) {
@@ -207,8 +213,10 @@ public class LRSpline {
 			double yo = b.origin.y + r*Math.sin(t);
 			circVerts.put((float) x);
 			circVerts.put((float) y);
+			circVerts.put(0);
 			circVertsOrigin.put((float) xo);
 			circVertsOrigin.put((float) yo);
+			circVertsOrigin.put(0);
 		}
 	}
 	
