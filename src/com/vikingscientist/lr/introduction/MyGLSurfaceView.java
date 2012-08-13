@@ -36,8 +36,9 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 	volatile long startTime = -1;
 	float lastX;
 	float lastY;
-	final float phiScale   = 0.14f;
+	final float phiScale   = 0.20f;
 	final float thetaScale = 0.28f;
+	Bspline nearestSpline ;
 	
 	public MyGLSurfaceView(Context context) {
 		super(context);
@@ -165,16 +166,20 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 		} else if(splineButton.isChecked()) {
 			// view B-spline input events
 			if(e.getAction() == MotionEvent.ACTION_DOWN) {
-				Bspline b = spline.getNearestSpline(new Point(x*mX-aX, y*mY-aY));
-				outKnot[0].setText(b.getKnotU());
-				outKnot[1].setText(b.getKnotV());
-				renderer.setSelectedSpline(b);
+				nearestSpline = spline.getNearestSpline(new Point(x*mX-aX, y*mY-aY));
+				outKnot[0].setText(nearestSpline.getKnotU());
+				outKnot[1].setText(nearestSpline.getKnotV());
+				renderer.setSelectedSpline(nearestSpline);
 				requestRender();
 				startTime = SystemClock.uptimeMillis();
 			} else if(e.getAction() == MotionEvent.ACTION_MOVE) {
 				long timeLapsed = (SystemClock.uptimeMillis() - startTime);
 				if(timeLapsed > 1500) {
 					Log.println(Log.DEBUG, "MyGLSurface::onTouchEvent", "holding for more than 1.5 sec");
+					spline.buildFunctionBuffer(nearestSpline);
+					outKnot[0].setText("");
+					outKnot[1].setText("");
+					renderer.unselectSpline();
 					setAnimation(Animation.PERSPECTIVE);
 					renderer.rotateView(45.0f, 75.0f);
 					inPerspectiveView = true;

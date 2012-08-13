@@ -1,6 +1,5 @@
 package com.vikingscientist.lr.introduction;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -9,7 +8,6 @@ import java.nio.ShortBuffer;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
 import android.opengl.GLES20;
@@ -21,6 +19,8 @@ import android.util.Log;
 
 public class MyRenderer implements GLSurfaceView.Renderer {
 
+	private final float touchLineZ = 1.0f;
+	
 	MyGLSurfaceView parent;
 	Context ctx;
 	LRSpline spline;
@@ -65,60 +65,20 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		this.ctx    = ctx;
 	}
 	
-	public void onDrawFrame(GL10 arg0) {
-		// get timer (for animations)
-		float t = getTime();
-		Log.println(Log.DEBUG, "onDraw()", "time = " + t);
-		
-		// clear screen
-		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-
-		int error = GLES20.glGetError();
-		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
-		
-		// setup the shader programs
-		int prog = shader.getProgram();
-		GLES20.glUseProgram(prog);
-		
-		error = GLES20.glGetError();
-		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
-		
-		// fetch all shader variables
-		int sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
-		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
-		int sTime		= GLES20.glGetUniformLocation(prog, "time");
-		int sCol		= GLES20.glGetUniformLocation(prog, "vColor");
+	public void setMVP(int prog, float time) {
+		// fetch variables
 		int sMVP		= GLES20.glGetUniformLocation(prog, "mMVP");
 		
-
-		Log.println(Log.DEBUG, "onDraw", "sTime = " + sTime);
-		Log.println(Log.DEBUG, "onDraw", "sPosOrigin = " + sPosOrigin);
-		Log.println(Log.DEBUG, "onDraw", "sPos = " + sPos);
-		Log.println(Log.DEBUG, "onDraw", "sCol = " + sCol);
-		Log.println(Log.DEBUG, "onDraw", "sMVP = " + sMVP);
-
-				
-		error = GLES20.glGetError();
-		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
-		
-		// setup the model-view projection matrix
 		Matrix.setIdentityM(MVPmatrix, 0);
-
-
 		Matrix.scaleM(MVPmatrix, 0, 1,1,0);
 		if(inPerspectiveView) {
 			float dt = 0.0f;
-//			double littleR = FloatMath.sqrt(nx*nx+ny*ny);
-//			double theta   = Math.PI/4;
-//			double phi     = Math.atan2(littleR, nz);
-//			theta *= 360 / 2 / Math.PI; // radians to degrees
-//			phi   *= 360 / 2 / Math.PI;
 			if(animation == Animation.NONE)
 				dt = 1.0f;
 			else if(animation == Animation.PERSPECTIVE)
-				dt = t/animationLength;			
+				dt = time/animationLength;			
 			else if(animation == Animation.PERSPECTIVE_REVERSE)
-				dt = 1.0f - t/animationLength;
+				dt = 1.0f - time/animationLength;
 
 			Matrix.rotateM(MVPmatrix, 0, (float) -phi*dt,   1, 0, 0);	
 			Matrix.rotateM(MVPmatrix, 0, (float) -theta*dt, 0, 0, 1);
@@ -127,8 +87,15 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		Matrix.scaleM(MVPmatrix, 0, 1.8f/spline.getWidth(), 1.8f/spline.getHeight(), 0.0f);
 		Matrix.translateM(MVPmatrix, 0, -0.5f*spline.getWidth(), -0.5f*spline.getHeight(), 0);
 		GLES20.glUniformMatrix4fv(sMVP, 1, false, MVPmatrix, 0);
-
-		// setup the color
+	}
+	
+	public void drawMesh(int prog, float time) {
+		// fetch variables
+		int sCol		= GLES20.glGetUniformLocation(prog, "vColor");
+		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+		int sTime		= GLES20.glGetUniformLocation(prog, "time");
+		
+		// set the color
 		GLES20.glEnableVertexAttribArray(sPos);
 		GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.linePoints);
 		GLES20.glUniform4f(sCol, Color.red(  cLine) /256.0f,
@@ -158,6 +125,12 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			GLES20.glLineWidth(3);
 			GLES20.glDrawElements(GLES20.GL_LINES, supportLinesSize, GLES20.GL_UNSIGNED_SHORT, supportLines);
 		}
+	}
+	
+	public void drawFunctions(int prog, float time) {
+		// fetch variables
+		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+		int sCol		= GLES20.glGetUniformLocation(prog, "vColor");
 		
 		// draw bubbles
 		GLES20.glLineWidth(3);
@@ -174,6 +147,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 					                 Color.alpha(cBspline)/256.0f);
 			GLES20.glDrawElements(GLES20.GL_TRIANGLES, spline.circIntCount, GLES20.GL_UNSIGNED_SHORT, spline.circInterior);
 		}
+		
 		if(displaySelectedSpline) {
 			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.circVerts);
 			GLES20.glUniform4f(sCol, Color.red(  cBsplineSelected)/256.0f,
@@ -182,9 +156,13 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 					                 Color.alpha(cBsplineSelected)/256.0f);
 			GLES20.glDrawElements(GLES20.GL_TRIANGLES, LRSpline.CIRCLE_POINTS*3, GLES20.GL_UNSIGNED_SHORT, selectedSpline);
 		}
-
-		error = GLES20.glGetError();
-		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
+		
+	}
+	
+	public void drawInputLine(int prog, float time) {
+		// fetch variables
+		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+		int sCol		= GLES20.glGetUniformLocation(prog, "vColor");
 		
 		// draw touch input line
 		if(displayTouchLine) {
@@ -192,8 +170,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 				GLES20.glUniform4f(sCol, Color.red(  cNewLine)/256.0f,
                                          Color.green(cNewLine)/256.0f,
                                          Color.blue( cNewLine)/256.0f,
-                                         Color.alpha(cNewLine) * t*(animationLength-t)*4/animationLength/animationLength/256.0f);
-				GLES20.glLineWidth((int)  (t*(animationLength-t)*4/animationLength/animationLength*10));
+                                         Color.alpha(cNewLine) * time*(animationLength-time)*4/animationLength/animationLength/256.0f);
+				GLES20.glLineWidth((int)  (time*(animationLength-time)*4/animationLength/animationLength*10));
 			} else {
 				GLES20.glUniform4f(sCol, Color.red(  cNewLine)/256.0f,
 		                                 Color.green(cNewLine)/256.0f,
@@ -204,9 +182,65 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, touchLine);
 			GLES20.glDrawArrays(GLES20.GL_LINES, 0, 2);
 		}
+	}
+	
+	public void drawAnimation(int prog, float time) {
+		setMVP(prog, time);
 
-		error = GLES20.glGetError();
-		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
+		// get shader variables
+		int sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
+		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+		int sTime		= GLES20.glGetUniformLocation(prog, "time");
+		int sCol		= GLES20.glGetUniformLocation(prog, "vColor");
+		GLES20.glEnableVertexAttribArray(sPosOrigin);
+		GLES20.glEnableVertexAttribArray(sPos);
+		
+		// setup variables and draw edge
+		GLES20.glVertexAttribPointer(sPos,       3, GLES20.GL_FLOAT, false, 0, spline.circVerts);
+		GLES20.glVertexAttribPointer(sPosOrigin, 3, GLES20.GL_FLOAT, false, 0, spline.circVertsOrigin);
+		GLES20.glUniform1f(sTime, time/animationLength);
+
+		GLES20.glUniform4f(sCol, Color.red(  cBsplineEdge)/256.0f,
+                                 Color.green(cBsplineEdge)/256.0f,
+                                 Color.blue( cBsplineEdge)/256.0f,
+                                 Color.alpha(cBsplineEdge)/256.0f);
+		GLES20.glDrawElements(GLES20.GL_LINES, spline.circEdgeCount, GLES20.GL_UNSIGNED_SHORT, spline.circEdge);
+		
+		// draw interior
+		GLES20.glUniform4f(sCol, Color.red(  cBspline)/256.0f,
+                                 Color.green(cBspline)/256.0f,
+                                 Color.blue( cBspline)/256.0f,
+                                 Color.alpha(cBspline)/256.0f);
+		GLES20.glDrawElements(GLES20.GL_TRIANGLES, spline.circIntCount, GLES20.GL_UNSIGNED_SHORT, spline.circInterior);
+		
+		// cleanup
+		GLES20.glDisableVertexAttribArray(sPosOrigin);
+		GLES20.glDisableVertexAttribArray(sPos);
+
+	}
+	
+	public void onDrawFrame(GL10 arg0) {
+		// get timer (for animations)
+		float t = getTime();
+		Log.println(Log.DEBUG, "onDraw()", "time = " + t);
+		
+		// clear screen
+		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+		
+		// setup the shader programs
+		int prog = shader.getProgram();
+		GLES20.glUseProgram(prog);
+		
+		// fetch all shader variables
+		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+	
+		setMVP(prog, t);
+
+		drawMesh(prog, t);
+		
+		drawFunctions(prog, t);
+
+		drawInputLine(prog, t);
 		
 		// cleanup
 		GLES20.glDisableVertexAttribArray(sPos);
@@ -216,58 +250,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			// choose program
 			prog = shader.getAnimateProgram();
 			GLES20.glUseProgram(prog);
-
-			error = GLES20.glGetError();
-			Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
-
-			// get shader variables
-			sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
-			sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
-			sTime		= GLES20.glGetUniformLocation(prog, "time");
-			sCol		= GLES20.glGetUniformLocation(prog, "vColor");
-			sMVP		= GLES20.glGetUniformLocation(prog, "mMVP");
-			GLES20.glEnableVertexAttribArray(sPosOrigin);
-			GLES20.glEnableVertexAttribArray(sPos);
 			
-			Log.println(Log.DEBUG, "onDraw", "sTime = " + sTime);
-			Log.println(Log.DEBUG, "onDraw", "sPosOrigin = " + sPosOrigin);
-			Log.println(Log.DEBUG, "onDraw", "sPos = " + sPos);
-			Log.println(Log.DEBUG, "onDraw", "sCol = " + sCol);
-			Log.println(Log.DEBUG, "onDraw", "sMVP = " + sMVP);
-
-			error = GLES20.glGetError();
-			Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
-			
-			// setup variables and draw edge
-			GLES20.glUniformMatrix4fv(sMVP, 1, false, MVPmatrix, 0);
-			GLES20.glVertexAttribPointer(sPos,       3, GLES20.GL_FLOAT, false, 0, spline.circVerts);
-			GLES20.glVertexAttribPointer(sPosOrigin, 3, GLES20.GL_FLOAT, false, 0, spline.circVertsOrigin);
-			GLES20.glUniform1f(sTime, t/animationLength);
-
-			GLES20.glUniform4f(sCol, Color.red(  cBsplineEdge)/256.0f,
-	                                 Color.green(cBsplineEdge)/256.0f,
-	                                 Color.blue( cBsplineEdge)/256.0f,
-	                                 Color.alpha(cBsplineEdge)/256.0f);
-			GLES20.glDrawElements(GLES20.GL_LINES, spline.circEdgeCount, GLES20.GL_UNSIGNED_SHORT, spline.circEdge);
-
-			error = GLES20.glGetError();
-			Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
-			
-			// draw interior
-			GLES20.glUniform4f(sCol, Color.red(  cBspline)/256.0f,
-	                                 Color.green(cBspline)/256.0f,
-	                                 Color.blue( cBspline)/256.0f,
-	                                 Color.alpha(cBspline)/256.0f);
-			GLES20.glDrawElements(GLES20.GL_TRIANGLES, spline.circIntCount, GLES20.GL_UNSIGNED_SHORT, spline.circInterior);
-			
-			// cleanup
-			GLES20.glDisableVertexAttribArray(sPosOrigin);
-			GLES20.glDisableVertexAttribArray(sPos);
-
+			drawAnimation(prog, t);
 		}
-
-		error = GLES20.glGetError();
-		Log.println(Log.DEBUG, "onDraw checkpoint", "error = " + error);
 		
 
 	}
@@ -281,6 +266,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		GLES20.glClearColor(0,0,0,1);
 		
 		GLES20.glEnable(GLES20.GL_BLEND);
+		
 		GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		
 		// make, compile and link all programs
@@ -319,7 +305,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		touchLine.position(3);
 		touchLine.put(p.x);
 		touchLine.put(p.y);
-		touchLine.put(0);
+		touchLine.put(touchLineZ);
 		touchLine.position(0);
 	}
 	
@@ -329,7 +315,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		float z1 = touchLine.get();
 		touchLine.put(x);
 		touchLine.put(y1);
-		touchLine.put(0);
+		touchLine.put(touchLineZ);
 		touchLine.position(0);
 	}
 	public void setNewLineEndY(float y) {
@@ -338,14 +324,14 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		float z1 = touchLine.get();
 		touchLine.put(x1);
 		touchLine.put(y);
-		touchLine.put(0);
+		touchLine.put(1);
 		touchLine.position(0);
 	}
 	
 	public void setNewLineStartPos(Point p) {
 		touchLine.put(p.x);
 		touchLine.put(p.y);
-		touchLine.put(0);
+		touchLine.put(1);
 		touchLine.position(0);
 		displayTouchLine = true;
 	}
