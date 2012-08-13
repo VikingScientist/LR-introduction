@@ -15,6 +15,7 @@ public class LRSpline {
 	
 	// rendering controls
 	static final int CIRCLE_POINTS = 20;
+	static final int PLOT_POINTS   = 5;
 	
 	// core LR B-spline information
 	int p1, p2;
@@ -25,6 +26,7 @@ public class LRSpline {
 	// nice-to-have variables
 	int uMax;
 	int vMax;
+	float zMax;
 	boolean lastSnappedToUspan;
 	
 	// rendering information and buffers
@@ -33,6 +35,8 @@ public class LRSpline {
 	volatile ShortBuffer circInterior;
 	volatile ShortBuffer circEdge;
 	volatile FloatBuffer circVertsOrigin;
+	volatile FloatBuffer functionView; // for perspective view 
+	volatile ShortBuffer functionLines;
 	
 	volatile int         multCount[];
 	volatile int         circIntCount;
@@ -99,11 +103,58 @@ public class LRSpline {
 		return vMax;
 	}
 	
+	public float getZmax() {
+		return zMax;
+	}
+	
 	public int getP(int i) {
 		if(i == 0)
 			return p1;
 		else
 			return p2;
+	}
+	
+	public void buildFunctionBuffer(Bspline b) {
+		float verts[] = new float[(uMax*PLOT_POINTS+1)*(vMax*PLOT_POINTS+1)*3];
+		ByteBuffer bb;
+		
+		bb = ByteBuffer.allocateDirect(4*verts.length); // every integer span has PLOT_POINTS
+		bb.order(ByteOrder.nativeOrder());
+		functionView = bb.asFloatBuffer();
+		
+		bb = ByteBuffer.allocateDirect(2*2*lines.size()); // every integer span has PLOT_POINTS
+		bb.order(ByteOrder.nativeOrder());
+		functionLines = bb.asShortBuffer();
+		
+		zMax = Float.MIN_VALUE;
+		
+		int k=0;
+		for(int i=0; i<=uMax*PLOT_POINTS; i++) {
+			for(int j=0; j<=vMax*PLOT_POINTS; j++) {
+				float x = ((float) i) / PLOT_POINTS;
+				float y = ((float) j) / PLOT_POINTS;
+				float z = x*(uMax-x) * y*(vMax-y);
+				verts[k++] = x;
+				verts[k++] = y;
+				verts[k++] = z;
+				zMax = Math.max(zMax, z);
+			}
+		}
+		functionView.put(verts);
+		for(MeshLine m : lines) {
+			int x1 = (m.span_u) ? m.start    : m.constPar;
+			int y1 = (m.span_u) ? m.constPar : m.start;
+			int x2 = (m.span_u) ? m.stop     : m.constPar;
+			int y2 = (m.span_u) ? m.constPar : m.stop;
+			
+			int i1 = y1*(uMax*PLOT_POINTS+1) + x1*PLOT_POINTS;
+			int i2 = y2*(uMax*PLOT_POINTS+1) + x2*PLOT_POINTS;
+			functionLines.put((short) i1);
+			functionLines.put((short) i2);
+		}
+		
+		functionLines.position(0);
+		functionView.position(0);
 	}
 	
 	public void buildBuffers() {

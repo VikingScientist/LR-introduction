@@ -52,7 +52,6 @@ public class MainActivity extends Activity implements OnClickListener {
     public void onResume() {
     	super.onResume();
     	sensors.registerListener(surfaceView, sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
-    	sensors.registerListener(surfaceView, sensors.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_NORMAL);
     }
     
     public void onPause() {

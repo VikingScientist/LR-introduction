@@ -1,5 +1,6 @@
 package com.vikingscientist.lr.introduction;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.hardware.Sensor;
@@ -18,6 +19,7 @@ import android.widget.TextView;
 public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, SensorEventListener {
 
 	MyRenderer renderer; 
+	Activity owner;
 	LRSpline spline = new LRSpline(2, 2, 4, 3);
 	
 	int width;
@@ -32,24 +34,28 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 	private boolean inPerspectiveView  = false;
 	
 	volatile long startTime = -1;
+	float lastX;
+	float lastY;
+	final float phiScale   = 0.14f;
+	final float thetaScale = 0.28f;
 	
 	public MyGLSurfaceView(Context context) {
 		super(context);
-		init();
+		init(context);
 	}
 	
 	public MyGLSurfaceView(Context context, AttributeSet attrs)
 	{
 		super(context, attrs);
-		init();
+		init(context);
 	}
 	
-	public void init() {
+	public void init(Context context) {
 		// Create an OpenGL ES 2.0 context
 		setEGLContextClientVersion(2);
 
 		// Set the Renderer for drawing on the GLSurfaceView
-		renderer = new MyRenderer(spline, this);
+		renderer = new MyRenderer(spline, this, (Activity) context);
 		setRenderer(renderer);
 		
 		// Render the view only when there is a change in the drawing data
@@ -89,16 +95,16 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 			
 		} else if(animate == Animation.NONE) {
 			inAnimation = false;
-			if(!inPerspectiveView) 
-				setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+			setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 			return; // to not set inAnimation=true
 		}
 		inAnimation = true;
 	}
 	
 	public boolean onTouchEvent(MotionEvent e) {
-		if(inAnimation || inPerspectiveView)
+		if(inAnimation)
 			return true;
+		
 		float x = e.getX();
 		float y = e.getY();
 		width  = getWidth();
@@ -110,6 +116,21 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 		float aX = 0.05f*spline.getWidth()/0.9f;
 		float aY = 0.05f*spline.getHeight()/0.9f;
 		
+		if(inPerspectiveView) {
+			// coordinates using only screen coordinates
+			if(e.getAction() == MotionEvent.ACTION_DOWN) {
+				lastX = e.getX();
+				lastY = e.getY();
+			} else if(e.getAction() == MotionEvent.ACTION_MOVE) {
+				float dx = (e.getX() - lastX) * thetaScale;
+				float dy = (e.getY() - lastY) * phiScale;
+				lastX = e.getX();
+				lastY = e.getY();
+				renderer.rotateView(-dx, -dy);
+				requestRender();
+			}
+			return true;
+		}
 
 		if(lineButton.isChecked() ) {
 			// insert new-line input events
@@ -155,6 +176,7 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 				if(timeLapsed > 1500) {
 					Log.println(Log.DEBUG, "MyGLSurface::onTouchEvent", "holding for more than 1.5 sec");
 					setAnimation(Animation.PERSPECTIVE);
+					renderer.rotateView(45.0f, 75.0f);
 					inPerspectiveView = true;
 				}
 			} else if(e.getAction() == MotionEvent.ACTION_UP) {
@@ -211,21 +233,15 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 	}
 
 	public void onSensorChanged(SensorEvent event) {
-//		if(!inPerspectiveView)
-//			return;
+		if(!inPerspectiveView)
+			return;
 		if (event.sensor.getType()==Sensor.TYPE_ACCELEROMETER) {
 			float nx=event.values[0];
             float ny=event.values[1];
             float nz=event.values[2];
 //            Log.println(Log.DEBUG, "sensor ACCELEROMETER event", String.format("normal = [%.3f, %.3f, %.3f]", nx,ny,nz));
             renderer.setPhoneNormal(nx, ny, nz);
-		} else if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-			float nx=event.values[0];
-            float ny=event.values[1];
-            float nz=event.values[2];
-//            Log.println(Log.DEBUG, "sensor MAGNETIC event", String.format("normal = [%.3f, %.3f, %.3f]", nx,ny,nz));
-            renderer.setMagnetism(nx, ny, nz);
-		}
+		} 
 	}
 	
 

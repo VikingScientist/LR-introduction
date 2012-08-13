@@ -1,5 +1,6 @@
 package com.vikingscientist.lr.introduction;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -8,20 +9,20 @@ import java.nio.ShortBuffer;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import android.app.Activity;
+import android.content.Context;
 import android.graphics.Color;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.os.SystemClock;
-import android.util.FloatMath;
 import android.util.Log;
 
 
 public class MyRenderer implements GLSurfaceView.Renderer {
 
 	MyGLSurfaceView parent;
+	Context ctx;
 	LRSpline spline;
 	Shaders shader;
 	
@@ -46,10 +47,10 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	float nx;
 	float ny;
 	float nz;
-	// magnetism
-	float mx;
-	float my;
-	float mz;
+	
+	// camera view
+	double theta = 0;
+	double phi   = 0;
 	
 	int cLine;
 	int cNewLine;
@@ -58,10 +59,10 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	int cBsplineSelected;
 	int cSupport;
 
-	public MyRenderer(LRSpline spline, MyGLSurfaceView parent) {
+	public MyRenderer(LRSpline spline, MyGLSurfaceView parent, Context ctx) {
 		this.parent = parent;
 		this.spline = spline;
-
+		this.ctx    = ctx;
 	}
 	
 	public void onDrawFrame(GL10 arg0) {
@@ -102,26 +103,29 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		
 		// setup the model-view projection matrix
 		Matrix.setIdentityM(MVPmatrix, 0);
+
+
+		Matrix.scaleM(MVPmatrix, 0, 1,1,0);
 		if(inPerspectiveView) {
 			float dt = 0.0f;
-			double littleR = FloatMath.sqrt(nx*nx+ny*ny);
-			double theta   = Math.atan2(my,mx); // from magnetic compass
-			double phi     = Math.atan2(littleR, nz);
-			theta *= 360 / 2 / Math.PI; // radians to degrees
-			phi   *= 360 / 2 / Math.PI;
+//			double littleR = FloatMath.sqrt(nx*nx+ny*ny);
+//			double theta   = Math.PI/4;
+//			double phi     = Math.atan2(littleR, nz);
+//			theta *= 360 / 2 / Math.PI; // radians to degrees
+//			phi   *= 360 / 2 / Math.PI;
 			if(animation == Animation.NONE)
 				dt = 1.0f;
 			else if(animation == Animation.PERSPECTIVE)
 				dt = t/animationLength;			
 			else if(animation == Animation.PERSPECTIVE_REVERSE)
 				dt = 1.0f - t/animationLength;
-			
-			Matrix.rotateM(MVPmatrix, 0, (float) -theta*dt, 0, 0, 1);
+
 			Matrix.rotateM(MVPmatrix, 0, (float) -phi*dt,   1, 0, 0);	
+			Matrix.rotateM(MVPmatrix, 0, (float) -theta*dt, 0, 0, 1);
 			Log.println(Log.DEBUG, "setting MVP", "Phi = " + phi + "  theta = " + theta);
 		}
-		Matrix.translateM(MVPmatrix, 0, -0.9f, -0.9f, 0);
-		Matrix.scaleM(MVPmatrix, 0, 1.8f/spline.getWidth(), 1.8f/spline.getHeight(), 0);
+		Matrix.scaleM(MVPmatrix, 0, 1.8f/spline.getWidth(), 1.8f/spline.getHeight(), 0.0f);
+		Matrix.translateM(MVPmatrix, 0, -0.5f*spline.getWidth(), -0.5f*spline.getHeight(), 0);
 		GLES20.glUniformMatrix4fv(sMVP, 1, false, MVPmatrix, 0);
 
 		// setup the color
@@ -280,8 +284,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		
 		// make, compile and link all programs
-		this.shader = new Shaders();
-		
+		this.shader = new Shaders(ctx);
+
 		// build all spline object stuff
 		spline.buildBuffers();
 		
@@ -414,6 +418,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	public void finishPerspective() {
 		inPerspectiveView = false;
+		phi   = 0.0f;
+		theta = 0.0f;
 	}
 	
 	
@@ -453,10 +459,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		this.nz = nz;
 	}
 	
-	public void setMagnetism(float mx, float my, float mz) {
-		this.mx = mx;
-		this.my = my;
-		this.mz = mz;
+	public void rotateView(float dTheta, float dPhi) {
+		phi    = Math.max(Math.min(phi+dPhi, 180.0f), 0);
+		theta  = (theta + dTheta) % 360.0f;
 	}
 	
 }

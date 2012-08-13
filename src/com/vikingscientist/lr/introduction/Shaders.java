@@ -1,38 +1,19 @@
 package com.vikingscientist.lr.introduction;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.res.Resources;
 import android.opengl.GLES20;
 import android.util.Log;
 
 public class Shaders {
-	
-	private final String vertexShaderCode =
-		    "attribute vec4 vPosition;" +
-		    "uniform mat4 mMVP;" +
-		    "void main() {" +
-		    "  gl_Position = mMVP*vPosition;" +
-		    "}";
-	
-	private final String animateVertexShader =
-		    "attribute vec4 vPositionStart;   \n" +
-		    "attribute vec4 vPosition;        \n" +
-		    "uniform mat4 mMVP;               \n" + 
-		    "uniform float time;              \n" +
-		    "void main() {                    \n" +
-//		    "  gl_Position = mMVP * ((1.0f-time)*vPositionStart + time*vPosition); \n" +
-		    "  vec4 pos = vec4(0,0,0,1);" +
-		    "  pos.x = vPositionStart.x*(1.0-time) + time*vPosition.x;" +
-		    "  pos.y = vPositionStart.y*(1.0-time) + time*vPosition.y;" +
-		    "  gl_Position = mMVP * pos; \n" +
-//		    "  gl_Position.x *= time; \n" +
-//		    "  gl_Position.y *= time; \n" +
-		    "} \n";
 
-	private final String fragmentShaderCode =
-		    "precision mediump float;" +
-		    "uniform vec4 vColor;" +
-		    "void main() {" +
-		    "  gl_FragColor = vColor;" +
-		    "}";
+
 	
 	int mProgram;
 	int mProgramAnimate;
@@ -40,8 +21,6 @@ public class Shaders {
     int vertexShader    ;
     int animateShader   ;
     int fragmentShader  ;
-    int fragmentShader2 ;
-
     
 //    int attPosStart = 0;
 //    int attPos      = 1;
@@ -49,12 +28,33 @@ public class Shaders {
 //    int uniTime     = 1;
 //    int uniColor    = 2;
 		
-	public Shaders() {
-	    
+	public Shaders(Context ctx) {
+		
+		String vertexShaderCode    = "";
+		String animateVertexShader = "";
+		String fragmentShaderCode  = "";
+
+		Resources res = ctx.getResources();
+		
+		// read all shaders from file
+		try {
+			vertexShaderCode    = readFile(res.openRawResource(R.raw.mvponly_vert));
+			animateVertexShader = readFile(res.openRawResource(R.raw.animate_vert));
+			fragmentShaderCode  = readFile(res.openRawResource(R.raw.onecolor_frag));
+		} catch(IOException e) {
+			if(ctx instanceof Activity) {
+				Log.println(Log.ERROR, "Shaders::Shaders()", "Error reading file: " + e.getMessage());
+				Log.println(Log.ERROR, "Shaders::Shaders()", "Terminating...");
+				((Activity) ctx).finish();
+			} else {
+				Log.println(Log.ERROR, "Shaders::Shaders()", "Error reading file: " + e.getMessage());
+			}
+		}
+		
+		
 	    vertexShader    = loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderCode);
 	    animateShader   = loadShader(GLES20.GL_VERTEX_SHADER, animateVertexShader);
 	    fragmentShader  = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
-	    fragmentShader2 = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
 
 	    mProgram = GLES20.glCreateProgram();             // create empty OpenGL ES Program
 	    GLES20.glAttachShader(mProgram, vertexShader);   // add the vertex shader to program
@@ -67,7 +67,7 @@ public class Shaders {
 
 	    mProgramAnimate = GLES20.glCreateProgram();
 	    GLES20.glAttachShader(mProgramAnimate, animateShader);
-	    GLES20.glAttachShader(mProgramAnimate, fragmentShader2);
+	    GLES20.glAttachShader(mProgramAnimate, fragmentShader);
 	    GLES20.glLinkProgram(mProgramAnimate);
 	    
 	    infoLog = GLES20.glGetProgramInfoLog(mProgramAnimate);
@@ -97,5 +97,19 @@ public class Shaders {
 	
 	public int getAnimateProgram() {
 	    return mProgramAnimate;
+	}
+	
+	private String readFile( InputStream file ) throws IOException {
+	    BufferedReader reader = new BufferedReader( new InputStreamReader(file));
+	    String         line = null;
+	    StringBuilder  stringBuilder = new StringBuilder();
+	    String         ls = System.getProperty("line.separator");
+
+	    while( ( line = reader.readLine() ) != null ) {
+	        stringBuilder.append( line );
+	        stringBuilder.append( ls );
+	    }
+
+	    return stringBuilder.toString();
 	}
 }
