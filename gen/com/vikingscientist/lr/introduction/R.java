@@ -43,10 +43,12 @@ public final class R {
         public static final int activity_main=0x7f090000;
     }
     public static final class raw {
-        public static final int animate_vert=0x7f040000;
-        public static final int jet_frag=0x7f040001;
-        public static final int mvponly_vert=0x7f040002;
-        public static final int onecolor_frag=0x7f040003;
+        public static final int animate=0x7f040000;
+        public static final int jet=0x7f040001;
+        public static final int mvponly=0x7f040002;
+        public static final int onecolor=0x7f040003;
+        public static final int zcolor_f=0x7f040004;
+        public static final int zcolor_v=0x7f040005;
     }
     public static final class string {
         public static final int app_name=0x7f070000;

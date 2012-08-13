@@ -70,7 +70,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		int sMVP		= GLES20.glGetUniformLocation(prog, "mMVP");
 		
 		Matrix.setIdentityM(MVPmatrix, 0);
-		Matrix.scaleM(MVPmatrix, 0, 1,1,0);
+		Matrix.scaleM(MVPmatrix, 0, 1,1, 1.0e-3f);
 		if(inPerspectiveView) {
 			float dt = 0.0f;
 			if(animation == Animation.NONE)
@@ -80,11 +80,10 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			else if(animation == Animation.PERSPECTIVE_REVERSE)
 				dt = 1.0f - time/animationLength;
 
-			Matrix.rotateM(MVPmatrix, 0, (float) -phi*dt,   1, 0, 0);	
+			Matrix.rotateM(MVPmatrix, 0, (float)  phi*dt,   1, 0, 0);	
 			Matrix.rotateM(MVPmatrix, 0, (float) -theta*dt, 0, 0, 1);
-			Log.println(Log.DEBUG, "setting MVP", "Phi = " + phi + "  theta = " + theta);
 		}
-		Matrix.scaleM(MVPmatrix, 0, 1.8f/spline.getWidth(), 1.8f/spline.getHeight(), 0.0f);
+		Matrix.scaleM(MVPmatrix, 0, 1.8f/spline.getWidth(), 1.8f/spline.getHeight(), -0.9f/spline.getZmax());
 		Matrix.translateM(MVPmatrix, 0, -0.5f*spline.getWidth(), -0.5f*spline.getHeight(), 0);
 		GLES20.glUniformMatrix4fv(sMVP, 1, false, MVPmatrix, 0);
 	}
@@ -214,41 +213,68 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		GLES20.glDrawElements(GLES20.GL_TRIANGLES, spline.circIntCount, GLES20.GL_UNSIGNED_SHORT, spline.circInterior);
 		
 		// cleanup
-		GLES20.glDisableVertexAttribArray(sPosOrigin);
-		GLES20.glDisableVertexAttribArray(sPos);
+//		GLES20.glDisableVertexAttribArray(sPosOrigin);
+//		GLES20.glDisableVertexAttribArray(sPos);
+	}
+	
+	public void drawPerspective(int prog, float time) {
+		int sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
+		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
+		int sTime		= GLES20.glGetUniformLocation(prog, "time");
+		int sMax		= GLES20.glGetUniformLocation(prog, "maximumVal");
+		int sMin		= GLES20.glGetUniformLocation(prog, "minimumVal");
+		int sBlack		= GLES20.glGetUniformLocation(prog, "justBlack");
+		
+		GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+		GLES20.glEnableVertexAttribArray(sPos);
+		
+		GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.perspVertices);
+		GLES20.glUniform1f(sMax, spline.getZmax());
+		GLES20.glUniform1f(sMin, 0.0f);
+		GLES20.glUniform1f(sBlack, 0.0f);
+		
+		GLES20.glDrawElements(GLES20.GL_TRIANGLE_STRIP, spline.perspTriangleCount, GLES20.GL_UNSIGNED_SHORT, spline.perspTriangles);GLES20.glDrawElements(GLES20.GL_TRIANGLE_STRIP, spline.perspTriangleCount, GLES20.GL_UNSIGNED_SHORT, spline.perspTriangles);
 
+		GLES20.glUniform1f(sBlack, 1.0f);
+		
+		GLES20.glDrawElements(GLES20.GL_LINES,          spline.perspLineCount,     GLES20.GL_UNSIGNED_SHORT, spline.perspLines);
+		
+		GLES20.glDisable(GLES20.GL_DEPTH_TEST);
 	}
 	
 	public void onDrawFrame(GL10 arg0) {
 		// get timer (for animations)
 		float t = getTime();
-		Log.println(Log.DEBUG, "onDraw()", "time = " + t);
 		
 		// clear screen
-		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 		
-		// setup the shader programs
-		int prog = shader.getProgram();
-		GLES20.glUseProgram(prog);
-		
-		// fetch all shader variables
-		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
-	
-		setMVP(prog, t);
+		if(inPerspectiveView) {
+			// setup the shader programs
+			int prog = shader.getPerspectiveProgram();
+			GLES20.glUseProgram(prog);
+				
+			setMVP(prog, t);
+			drawPerspective(prog, t);
+		} else {
+			// setup the shader programs
+			int prog = shader.getProgram();
+			GLES20.glUseProgram(prog);
+				
+			setMVP(prog, t);
+			drawMesh(prog, t);
+			drawFunctions(prog, t);
+			drawInputLine(prog, t);
+		}
 
-		drawMesh(prog, t);
-		
-		drawFunctions(prog, t);
-
-		drawInputLine(prog, t);
 		
 		// cleanup
-		GLES20.glDisableVertexAttribArray(sPos);
+//		GLES20.glDisableVertexAttribArray(sPos);
 		
 		// draw animation
 		if(animation == Animation.BSPLINE_SPLIT) {
 			// choose program
-			prog = shader.getAnimateProgram();
+			int prog = shader.getAnimateProgram();
 			GLES20.glUseProgram(prog);
 			
 			drawAnimation(prog, t);
@@ -447,7 +473,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	public void rotateView(float dTheta, float dPhi) {
 		phi    = Math.max(Math.min(phi+dPhi, 180.0f), 0);
-		theta  = (theta + dTheta) % 360.0f;
+		theta  = ((theta + dTheta) % 360.0f);
 	}
 	
 }

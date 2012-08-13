@@ -17,10 +17,13 @@ public class Shaders {
 	
 	int mProgram;
 	int mProgramAnimate;
+	int mPerspective;
 	
     int vertexShader    ;
     int animateShader   ;
     int fragmentShader  ;
+    int persVertShader  ;
+    int persFragShader  ;
     
 //    int attPosStart = 0;
 //    int attPos      = 1;
@@ -33,14 +36,18 @@ public class Shaders {
 		String vertexShaderCode    = "";
 		String animateVertexShader = "";
 		String fragmentShaderCode  = "";
+		String perspectiveFragment = "";
+		String perspectiveVertex   = "";
 
 		Resources res = ctx.getResources();
 		
 		// read all shaders from file
 		try {
-			vertexShaderCode    = readFile(res.openRawResource(R.raw.mvponly_vert));
-			animateVertexShader = readFile(res.openRawResource(R.raw.animate_vert));
-			fragmentShaderCode  = readFile(res.openRawResource(R.raw.onecolor_frag));
+			vertexShaderCode    = readFile(res.openRawResource(R.raw.mvponly));
+			animateVertexShader = readFile(res.openRawResource(R.raw.animate));
+			fragmentShaderCode  = readFile(res.openRawResource(R.raw.onecolor));
+			perspectiveFragment = readFile(res.openRawResource(R.raw.zcolor_f));
+			perspectiveVertex   = readFile(res.openRawResource(R.raw.zcolor_v));
 		} catch(IOException e) {
 			if(ctx instanceof Activity) {
 				Log.println(Log.ERROR, "Shaders::Shaders()", "Error reading file: " + e.getMessage());
@@ -51,11 +58,14 @@ public class Shaders {
 			}
 		}
 		
-		
-	    vertexShader    = loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderCode);
-	    animateShader   = loadShader(GLES20.GL_VERTEX_SHADER, animateVertexShader);
+		// load all shaders
+	    vertexShader    = loadShader(GLES20.GL_VERTEX_SHADER,   vertexShaderCode);
+	    animateShader   = loadShader(GLES20.GL_VERTEX_SHADER,   animateVertexShader);
 	    fragmentShader  = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
+	    persVertShader  = loadShader(GLES20.GL_VERTEX_SHADER,   perspectiveVertex);
+	    persFragShader  = loadShader(GLES20.GL_FRAGMENT_SHADER, perspectiveFragment);
 
+	    // create dull program
 	    mProgram = GLES20.glCreateProgram();             // create empty OpenGL ES Program
 	    GLES20.glAttachShader(mProgram, vertexShader);   // add the vertex shader to program
 	    GLES20.glAttachShader(mProgram, fragmentShader); // add the fragment shader to program
@@ -64,13 +74,22 @@ public class Shaders {
 	    String infoLog = GLES20.glGetProgramInfoLog(mProgram);
 	    Log.println(Log.DEBUG, "Program compile log", infoLog);
 	    
-
+	    // create animate program 
 	    mProgramAnimate = GLES20.glCreateProgram();
 	    GLES20.glAttachShader(mProgramAnimate, animateShader);
 	    GLES20.glAttachShader(mProgramAnimate, fragmentShader);
 	    GLES20.glLinkProgram(mProgramAnimate);
 	    
 	    infoLog = GLES20.glGetProgramInfoLog(mProgramAnimate);
+	    Log.println(Log.DEBUG, "Program compile log", infoLog);
+	    
+	    // create perspective program
+	    mPerspective = GLES20.glCreateProgram();
+	    GLES20.glAttachShader(mPerspective, persVertShader);
+	    GLES20.glAttachShader(mPerspective, persFragShader);
+	    GLES20.glLinkProgram(mPerspective);
+	    
+	    infoLog = GLES20.glGetProgramInfoLog(mPerspective);
 	    Log.println(Log.DEBUG, "Program compile log", infoLog);
 
 	}
@@ -86,7 +105,8 @@ public class Shaders {
 	    GLES20.glCompileShader(shader);
 	    
 	    String infoLog = GLES20.glGetShaderInfoLog(shader);
-	    Log.println(Log.DEBUG, "Shader compile log", infoLog);
+	    Log.println(Log.DEBUG, "Shader compile log", "trying to compile");
+	    Log.println(Log.DEBUG, "Shader compile log", "infoLog = \"" + infoLog + "\"");
 	    
 	    return shader;
 	}
@@ -97,6 +117,10 @@ public class Shaders {
 	
 	public int getAnimateProgram() {
 	    return mProgramAnimate;
+	}
+	
+	public int getPerspectiveProgram() {
+		return mPerspective;
 	}
 	
 	private String readFile( InputStream file ) throws IOException {
