@@ -112,6 +112,45 @@ public class Bspline {
 		return ans;
 	}
 	
+	public double evaluate(double u, double v, boolean u_from_right, boolean v_from_right)  {
+		int order_u_ = knotU.length-1;
+		int order_v_ = knotV.length-1;
+		
+	    if(knotU[0] > u || u > knotU[order_u_])
+	        return 0;
+	    if(knotV[0] > v || v > knotV[order_v_])
+	        return 0;
+
+	    double ans_u[] = new double[order_u_];
+	    double ans_v[] = new double[order_v_];
+
+	    for(int i=0; i<order_u_; i++) {
+	        if(u_from_right)
+	            ans_u[i] = (knotU[i] <= u && u <  knotU[i+1]) ? 1 : 0;
+	        else
+	            ans_u[i] = (knotU[i] <  u && u <= knotU[i+1]) ? 1 : 0;
+	    }
+	    for(int n=1; n<order_u_; n++)
+	        for(int j=0; j<order_u_-n; j++) {
+	            ans_u[j]  = (knotU[ j+n ]==knotU[ j ]) ? 0 : (  u-knotU[j]  )/(knotU[j+n]  -knotU[ j ])*ans_u[ j ];
+	            ans_u[j] += (knotU[j+n+1]==knotU[j+1]) ? 0 : (knotU[j+n+1]-u)/(knotU[j+n+1]-knotU[j+1])*ans_u[j+1];
+	    }
+
+	    for(int i=0; i<order_v_; i++) {
+	        if(v_from_right)
+	            ans_v[i] = (knotV[i] <= v && v <  knotV[i+1]) ? 1 : 0;
+	        else
+	            ans_v[i] = (knotV[i] <  v && v <= knotV[i+1]) ? 1 : 0;
+	    }
+	    for(int n=1; n<order_v_; n++)
+	        for(int j=0; j<order_v_-n; j++) {
+	            ans_v[j]  = (knotV[ j+n ]==knotV[ j ]) ? 0 : (  v-knotV[j]  )/(knotV[j+n]  -knotV[ j ])*ans_v[ j ];
+	            ans_v[j] += (knotV[j+n+1]==knotV[j+1]) ? 0 : (knotV[j+n+1]-v)/(knotV[j+n+1]-knotV[j+1])*ans_v[j+1];
+	    }
+
+	    return ans_u[0]*ans_v[0];
+	}
+	
 	public boolean hasLine(MeshLine m) {
 		int hits = 0;
 		if(m.span_u) {

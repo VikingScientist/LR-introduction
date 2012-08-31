@@ -152,7 +152,7 @@ public class LRSpline {
 			for(int i=0; i<=uMax*PLOT_POINTS; i++) {
 				float x = ((float) i) / PLOT_POINTS;
 				float y = ((float) j) / PLOT_POINTS;
-				float z = x*(uMax-x) * y*(vMax-y);
+				float z =  (float) b.evaluate(x,y, x==uMax, y==vMax);
 				verts[k++] = x;
 				verts[k++] = y;
 				verts[k++] = z;
