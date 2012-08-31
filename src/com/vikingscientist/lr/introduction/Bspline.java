@@ -60,6 +60,19 @@ public class Bspline {
 		origin.multiply(2);
 	}
 	
+	public int umin() {
+		return knotU[0];
+	}
+	public int vmin() {
+		return knotV[0];
+	}
+	public int umax() {
+		return knotU[knotU.length-1];
+	}
+	public int vmax() {
+		return knotV[knotU.length-1];
+	}
+	
 	public Point getGrevillePoint() {
 		float x = 0;
 		float y = 0;

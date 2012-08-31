@@ -15,7 +15,7 @@ public class LRSpline {
 	
 	// rendering controls
 	static final int CIRCLE_POINTS = 20;
-	static final int PLOT_POINTS   = 5;
+	static final int PLOT_POINTS   = 50;
 	
 	// core LR B-spline information
 	int p1, p2;
@@ -35,8 +35,10 @@ public class LRSpline {
 	volatile ShortBuffer circInterior;
 	volatile ShortBuffer circEdge;
 	volatile FloatBuffer circVertsOrigin;
-	volatile FloatBuffer perspVertices; // for perspective view 
+	volatile FloatBuffer perspVertices; // for perspective view
+	volatile FloatBuffer perspLineVertices; // for perspective view 
 	volatile ShortBuffer perspLines;
+	volatile ShortBuffer perspTriangleStrip;
 	volatile ShortBuffer perspTriangles;
 	
 	volatile int         multCount[];
@@ -119,22 +121,33 @@ public class LRSpline {
 	
 	public void buildFunctionBuffer(Bspline b) {
 		// functionView is gridded as a triangle_strip. Double-storing the endpoint to
-		// get two degenerated triangles when swapping to the next row
-		int nVerts         = (uMax*PLOT_POINTS+1)*(vMax*PLOT_POINTS+1)*3;
-		perspTriangleCount = ((uMax*PLOT_POINTS)*2+4)*(vMax*PLOT_POINTS);
+		// get two degenerated triangles when swapping to the next row. The exterior where
+		// the B-spline is zero, is given as 8 quads surrounding the interior
+		int nVerts         = (PLOT_POINTS*PLOT_POINTS + 8*4)*3;
+		perspTriangleCount = 2*(PLOT_POINTS*PLOT_POINTS - 1);
 		perspLineCount     = 0;
-		for(MeshLine m : lines)
-			perspLineCount += (m.stop - m.start)*PLOT_POINTS*2;
+		for(MeshLine m : lines) {
+			if(b.splitBy(m))
+				perspLineCount += (PLOT_POINTS-1)*2;
+			else 
+				perspLineCount += 2;
+		}
+		perspLineCount *= 3;
 		
-		float verts[] = new float[nVerts];
-		short sLine[] = new short[perspLineCount];
-		short sTri[]  = new short[perspTriangleCount];
+		float verts[]      = new float[nVerts];
+		float lineVerts[]  = new float[perspLineCount];
+		short sTriStrip[]  = new short[perspTriangleCount];
+		short sTri[]       = new short[8*3*2];
 		
 		ByteBuffer bb;
 		
-		bb = ByteBuffer.allocateDirect(4*nVerts); // every integer span has PLOT_POINTS
+		bb = ByteBuffer.allocateDirect(4*nVerts); 
 		bb.order(ByteOrder.nativeOrder());
 		perspVertices = bb.asFloatBuffer();
+
+		bb = ByteBuffer.allocateDirect(4*perspLineCount); 
+		bb.order(ByteOrder.nativeOrder());
+		perspLineVertices = bb.asFloatBuffer();
 		
 		bb = ByteBuffer.allocateDirect(2*perspLineCount); 
 		bb.order(ByteOrder.nativeOrder());
@@ -142,16 +155,22 @@ public class LRSpline {
 		
 		bb = ByteBuffer.allocateDirect(2*perspTriangleCount); 
 		bb.order(ByteOrder.nativeOrder());
+		perspTriangleStrip = bb.asShortBuffer();
+		
+		bb = ByteBuffer.allocateDirect(8*3*2 * 2); 
+		bb.order(ByteOrder.nativeOrder());
 		perspTriangles = bb.asShortBuffer();
 		
 		zMax = Float.MIN_VALUE;
 		
 		// build the vertex buffer (structured mesh)
+		float dx = b.getWidth();
+		float dy = b.getHeight();
 		int k=0;
-		for(int j=0; j<=vMax*PLOT_POINTS; j++) {
-			for(int i=0; i<=uMax*PLOT_POINTS; i++) {
-				float x = ((float) i) / PLOT_POINTS;
-				float y = ((float) j) / PLOT_POINTS;
+		for(int j=0; j<PLOT_POINTS; j++) {
+			for(int i=0; i<PLOT_POINTS; i++) {
+				float x = ((float) i) / (PLOT_POINTS-1) * dx + b.umin();
+				float y = ((float) j) / (PLOT_POINTS-1) * dy + b.vmin();
 				float z =  (float) b.evaluate(x,y, x==uMax, y==vMax);
 				verts[k++] = x;
 				verts[k++] = y;
@@ -159,45 +178,114 @@ public class LRSpline {
 				zMax = Math.max(zMax, z);
 			}
 		}
+		// lower left quad
+		verts[k++] = 0;        verts[k++] = 0;        verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = 0;        verts[k++] = 0;
+		verts[k++] = 0;        verts[k++] = b.vmin(); verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = b.vmin(); verts[k++] = 0;
+
+		// under quad
+		verts[k++] = b.umin(); verts[k++] = 0;        verts[k++] = 0;
+		verts[k++] = b.umax(); verts[k++] = 0;        verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = b.vmin(); verts[k++] = 0;
+		verts[k++] = b.umax(); verts[k++] = b.vmin(); verts[k++] = 0;
+		
+		// lower right quad
+		verts[k++] = b.umax(); verts[k++] = 0;        verts[k++] = 0;
+		verts[k++] = uMax;     verts[k++] = 0;        verts[k++] = 0;
+		verts[k++] = b.umax(); verts[k++] = b.vmin(); verts[k++] = 0;
+		verts[k++] = uMax;     verts[k++] = b.vmin(); verts[k++] = 0;
+
+		// mid left quad
+		verts[k++] = 0;        verts[k++] = b.vmin(); verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = b.vmin(); verts[k++] = 0;
+		verts[k++] = 0;        verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = b.vmax(); verts[k++] = 0;
+
+		// then comes the actual function
+		
+		// mid right quad
+		verts[k++] = b.umax(); verts[k++] = b.vmin(); verts[k++] = 0;
+		verts[k++] = uMax;     verts[k++] = b.vmin(); verts[k++] = 0;
+		verts[k++] = b.umax(); verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = uMax;     verts[k++] = b.vmax(); verts[k++] = 0;
+		
+		// upper left quad
+		verts[k++] = 0;        verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = 0;        verts[k++] = vMax;     verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = vMax;     verts[k++] = 0;
+
+		// over quad
+		verts[k++] = b.umin(); verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = b.umax(); verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = b.umin(); verts[k++] = vMax;     verts[k++] = 0;
+		verts[k++] = b.umax(); verts[k++] = vMax;     verts[k++] = 0;
+		
+		// upper right quad
+		verts[k++] = b.umax(); verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = uMax;     verts[k++] = b.vmax(); verts[k++] = 0;
+		verts[k++] = b.umax(); verts[k++] = vMax;     verts[k++] = 0;
+		verts[k++] = uMax;     verts[k++] = vMax;     verts[k++] = 0;
 		
 		// build the line indices
 		k = 0;
 		for(MeshLine m : lines) {
-			int len = m.stop - m.start;
-			for(int i=0; i<len*PLOT_POINTS; i++) {
-				int x1 = (m.span_u) ? m.start    : m.constPar;
-				int y1 = (m.span_u) ? m.constPar : m.start;
-				x1 *= PLOT_POINTS;
-				y1 *= PLOT_POINTS;
-				if(m.span_u) {
-					sLine[k++] = (short) (y1*(uMax*PLOT_POINTS+1) + x1 +   i  );
-					sLine[k++] = (short) (y1*(uMax*PLOT_POINTS+1) + x1 + (i+1));
-				} else {
-					sLine[k++] = (short) ((y1 +  i )*(uMax*PLOT_POINTS+1) + x1 );
-					sLine[k++] = (short) ((y1 + i+1)*(uMax*PLOT_POINTS+1) + x1 );
+			if(b.splitBy(m)) {
+				dx = (float) ( (m.span_u) ? m.stop-m.start : 0.0 );
+				dy = (float) ( (m.span_u) ? 0.0 : m.stop-m.start );
+				float x1 = (m.span_u) ? m.start    : m.constPar;
+				float y1 = (m.span_u) ? m.constPar : m.start;
+				for(int i=1; i<PLOT_POINTS; i++) {
+					float x0 = x1 + dx*(i-1)/(PLOT_POINTS-1);
+					float y0 = y1 + dy*(i-1)/(PLOT_POINTS-1);
+					float z0 = (float) b.evaluate(x0, y0, x0==uMax, y0==vMax);
+					float x  = x1 + dx*i/(PLOT_POINTS-1);
+					float y  = y1 + dy*i/(PLOT_POINTS-1);
+					float z  = (float) b.evaluate(x, y, x==uMax, y==vMax);
+					lineVerts[k++] = x0;
+					lineVerts[k++] = y0;
+					lineVerts[k++] = z0;
+					lineVerts[k++] = x;
+					lineVerts[k++] = y;
+					lineVerts[k++] = z;
 				}
+			} else {
+				lineVerts[k++] = (m.span_u) ? m.start    : m.constPar;
+				lineVerts[k++] = (m.span_u) ? m.constPar : m.start;
+				lineVerts[k++] = 0;
+				lineVerts[k++] = (m.span_u) ? m.stop     : m.constPar;
+				lineVerts[k++] = (m.span_u) ? m.constPar : m.stop;
+				lineVerts[k++] = 0;
 			}
 		}
 		
 		// build the triangle strip indices
 		k=0;
-		for(int j=0; j<vMax*PLOT_POINTS; j++) {
-			sTri[k++] = (short) (  j  *(uMax*PLOT_POINTS+1) +   0  );
-			sTri[k++] = (short) ((j+1)*(uMax*PLOT_POINTS+1) +   0  );
-			for(int i=1; i<uMax*PLOT_POINTS+1; i++) {
-				sTri[k++] = (short) (  j  *(uMax*PLOT_POINTS+1) + i );
-				sTri[k++] = (short) ((j+1)*(uMax*PLOT_POINTS+1) + i );
+		for(int j=0; j<PLOT_POINTS-1; j++) {
+			sTriStrip[k++] = (short) (  j  *PLOT_POINTS +   0  );
+			sTriStrip[k++] = (short) ((j+1)*PLOT_POINTS +   0  );
+			for(int i=1; i<PLOT_POINTS; i++) {
+				sTriStrip[k++] = (short) (  j  *PLOT_POINTS + i );
+				sTriStrip[k++] = (short) ((j+1)*PLOT_POINTS + i );
 			}
-			sTri[k++] = (short) ((j+2)*(uMax*PLOT_POINTS+1) -  1  );
-			sTri[k++] = (short) ((j+1)*(uMax*PLOT_POINTS+1) +  0  );
+			sTriStrip[k++] = (short) ((j+2)*PLOT_POINTS -  1  );
+			sTriStrip[k++] = (short) ((j+1)*PLOT_POINTS +  0  );
 		}
+		k = 0;
+		for(int s=0; s<8; s++) 
+			for(int i=0; i<2; i++)
+				for(int j=0; j<3; j++)
+					sTri[k++] =	(short) (PLOT_POINTS*PLOT_POINTS + i + j + s*4);
 		
 		perspVertices.put(verts);
-		perspLines.put(sLine);
+		perspLineVertices.put(lineVerts);
+		perspTriangleStrip.put(sTriStrip);
 		perspTriangles.put(sTri);
 		
-		perspLines.position(0);
 		perspVertices.position(0);
+		perspLineVertices.position(0);
+		perspTriangleStrip.position(0);
 		perspTriangles.position(0);
 		
 //		for(int i=0; i<nVerts; i+=3)

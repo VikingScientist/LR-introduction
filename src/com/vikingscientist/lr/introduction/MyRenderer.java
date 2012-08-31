@@ -233,11 +233,13 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		GLES20.glUniform1f(sMin, 0.0f);
 		GLES20.glUniform1f(sBlack, 0.0f);
 		
-		GLES20.glDrawElements(GLES20.GL_TRIANGLE_STRIP, spline.perspTriangleCount, GLES20.GL_UNSIGNED_SHORT, spline.perspTriangles);GLES20.glDrawElements(GLES20.GL_TRIANGLE_STRIP, spline.perspTriangleCount, GLES20.GL_UNSIGNED_SHORT, spline.perspTriangles);
+		GLES20.glDrawElements(GLES20.GL_TRIANGLE_STRIP, spline.perspTriangleCount, GLES20.GL_UNSIGNED_SHORT, spline.perspTriangleStrip);
+		GLES20.glDrawElements(GLES20.GL_TRIANGLES,      3*8*2,                     GLES20.GL_UNSIGNED_SHORT, spline.perspTriangles);    
 
 		GLES20.glUniform1f(sBlack, 1.0f);
-		
-		GLES20.glDrawElements(GLES20.GL_LINES,          spline.perspLineCount,     GLES20.GL_UNSIGNED_SHORT, spline.perspLines);
+
+		GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.perspLineVertices);
+		GLES20.glDrawArrays(GLES20.GL_LINES,          0,     spline.perspLineCount/3);
 		
 		GLES20.glDisable(GLES20.GL_DEPTH_TEST);
 	}
