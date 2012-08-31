@@ -58,6 +58,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	int cBsplineEdge;
 	int cBsplineSelected;
 	int cSupport;
+	int cBackground;
 
 	public MyRenderer(LRSpline spline, MyGLSurfaceView parent, Context ctx) {
 		this.parent = parent;
@@ -291,7 +292,10 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 
 	public void onSurfaceCreated(GL10 arg0, EGLConfig arg1) {
 		// setup default rendering behavior
-		GLES20.glClearColor(0,0,0,1);
+		GLES20.glClearColor(Color.red(  cBackground)/256.0f,
+                			Color.green(cBackground)/256.0f,
+                			Color.blue( cBackground)/256.0f,
+                			Color.alpha(cBackground)/256.0f); 
 		
 		GLES20.glEnable(GLES20.GL_BLEND);
 		

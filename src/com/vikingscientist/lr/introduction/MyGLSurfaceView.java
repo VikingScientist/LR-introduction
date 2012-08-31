@@ -70,6 +70,7 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
     	renderer.cBsplineEdge     = res.getColor(R.color.bsplineEdge);
     	renderer.cBsplineSelected = res.getColor(R.color.bsplineSelected);
     	renderer.cSupport         = res.getColor(R.color.support);
+    	renderer.cBackground      = res.getColor(R.color.background);
 	}
 	
 	public void setAnimation(Animation animate) {

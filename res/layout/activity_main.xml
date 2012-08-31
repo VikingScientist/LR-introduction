@@ -20,7 +20,7 @@
         android:orientation="vertical"
     	android:layout_width="wrap_content"
     	android:layout_height="match_parent"
-    	android:background="#000000" >
+    	android:background="@color/background" >
     	
         <RadioGroup
 	       	android:layout_width="wrap_content"
@@ -31,13 +31,13 @@
 	        	android:layout_width="wrap_content"
 	        	android:layout_height="wrap_content"
 	        	android:checked="true"
-	        	android:textColor="#FFFFFF"
+	        	android:textColor="@color/textcolor"
 	        	android:text="@string/line" />
 	        <RadioButton
 	            android:id="@+id/bSpline"
 	        	android:layout_width="wrap_content"
 	        	android:layout_height="wrap_content"
-	        	android:textColor="#FFFFFF"
+	        	android:textColor="@color/textcolor"
 	        	android:text="@string/bspline" />
         </RadioGroup>
         <TextView
@@ -45,7 +45,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:selectable="false"
-            android:textColor="#CCCCCC"
+            android:textColor="@color/textshaded"
             android:hint="@string/outKnotU"
             />
         <TextView
@@ -53,7 +53,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:selectable="false"
-            android:textColor="#CCCCCC"
+            android:textColor="@color/textshaded"
             android:hint="@string/outKnotV"
             />
 

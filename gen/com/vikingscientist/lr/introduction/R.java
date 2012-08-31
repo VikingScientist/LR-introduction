@@ -11,12 +11,27 @@ public final class R {
     public static final class attr {
     }
     public static final class color {
-        public static final int bspline=0x7f050002;
-        public static final int bsplineEdge=0x7f050003;
-        public static final int bsplineSelected=0x7f050004;
-        public static final int line=0x7f050000;
-        public static final int newLine=0x7f050001;
-        public static final int support=0x7f050005;
+        /**  
+    <color name="background">      #f000 </color>
+    <color name="textcolor">       #ffff </color>
+    <color name="textshaded">      #CCCCCC </color>
+    <color name="line">            #ffffff96 </color>
+    <color name="newLine">         #ff00 </color>
+    <color name="bspline">         #9c9f </color>
+    <color name="bsplineEdge">     #ffcf </color>
+    <color name="bsplineSelected"> #f6f6 </color>
+    <color name="support">         #96f6 </color>
+     
+         */
+        public static final int background=0x7f050000;
+        public static final int bspline=0x7f050005;
+        public static final int bsplineEdge=0x7f050006;
+        public static final int bsplineSelected=0x7f050007;
+        public static final int line=0x7f050003;
+        public static final int newLine=0x7f050004;
+        public static final int support=0x7f050008;
+        public static final int textcolor=0x7f050001;
+        public static final int textshaded=0x7f050002;
     }
     public static final class dimen {
         public static final int padding_large=0x7f060002;

@@ -94,7 +94,7 @@ void main(void)
 	pos = mMVP * vPosition;
 	
 	if(justBlack) {
-		pos.z = pos.z - 1e-5;
+		pos.z = pos.z - 0.0001;
 	}
 	gl_Position = pos;
 	
