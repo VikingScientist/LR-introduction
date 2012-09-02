@@ -3,7 +3,6 @@ package com.vikingscientist.lr.introduction;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.nio.ShortBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -14,7 +13,6 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.os.SystemClock;
-import android.util.Log;
 
 
 public class MyRenderer implements GLSurfaceView.Renderer {
@@ -38,11 +36,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	private volatile float    animationLength = 0.0f;
 	private volatile long     startTime       = 0;
 	private volatile Animation animation      = Animation.NONE;
-	
-	// cellphone normal
-	float nx;
-	float ny;
-	float nz;
+	private Object lock                       = new Object();
 	
 	// camera view
 	double theta = 0;
@@ -73,9 +67,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			if(animation == Animation.NONE)
 				dt = 1.0f;
 			else if(animation == Animation.PERSPECTIVE)
-				dt = time/animationLength;			
+				dt = time;			
 			else if(animation == Animation.PERSPECTIVE_REVERSE)
-				dt = 1.0f - time/animationLength;
+				dt = 1.0f - time;
 
 			Matrix.rotateM(MVPmatrix, 0, (float)  phi*dt,   1, 0, 0);	
 			Matrix.rotateM(MVPmatrix, 0, (float) -theta*dt, 0, 0, 1);
@@ -166,8 +160,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 				GLES20.glUniform4f(sCol, Color.red(  cNewLine)/256.0f,
                                          Color.green(cNewLine)/256.0f,
                                          Color.blue( cNewLine)/256.0f,
-                                         Color.alpha(cNewLine) * time*(animationLength-time)*4/animationLength/animationLength/256.0f);
-				GLES20.glLineWidth((int)  (time*(animationLength-time)*4/animationLength/animationLength*10));
+                                         Color.alpha(cNewLine) * time*(1.0f-time)*4/256.0f);
+				GLES20.glLineWidth((int)  (time*(1.0-time)*4*10));
 			} else {
 				GLES20.glUniform4f(sCol, Color.red(  cNewLine)/256.0f,
 		                                 Color.green(cNewLine)/256.0f,
@@ -194,7 +188,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		// setup variables and draw edge
 		GLES20.glVertexAttribPointer(sPos,       3, GLES20.GL_FLOAT, false, 0, spline.circVerts);
 		GLES20.glVertexAttribPointer(sPosOrigin, 3, GLES20.GL_FLOAT, false, 0, spline.circVertsOrigin);
-		GLES20.glUniform1f(sTime, time/animationLength);
+		GLES20.glUniform1f(sTime, time);
 
 		GLES20.glUniform4f(sCol, Color.red(  cBsplineEdge)/256.0f,
                                  Color.green(cBsplineEdge)/256.0f,
@@ -215,9 +209,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	}
 	
 	public void drawPerspective(int prog, float time) {
-		int sPosOrigin	= GLES20.glGetAttribLocation(prog, "vPositionStart");
 		int sPos		= GLES20.glGetAttribLocation(prog, "vPosition");
-		int sTime		= GLES20.glGetUniformLocation(prog, "time");
 		int sMax		= GLES20.glGetUniformLocation(prog, "maximumVal");
 		int sMin		= GLES20.glGetUniformLocation(prog, "minimumVal");
 		int sBlack		= GLES20.glGetUniformLocation(prog, "justBlack");
@@ -243,7 +235,11 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	public void onDrawFrame(GL10 arg0) {
 		// get timer (for animations)
-		float t = getTime();
+		float t;
+		synchronized (lock) {
+			 t  = getTime();
+			 t /= animationLength;
+		}
 		
 		// evaluate all spline stuff
 		spline.buildBuffers();
@@ -334,9 +330,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	}
 	
 	public void setNewLineEndX(float x) {
-		float x1 = touchLine.get();
+//		float x1 = touchLine.get();
 		float y1 = touchLine.get();
-		float z1 = touchLine.get();
+//		float z1 = touchLine.get();
 		touchLine.put(x);
 		touchLine.put(y1);
 		touchLine.put(touchLineZ);
@@ -344,8 +340,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	}
 	public void setNewLineEndY(float y) {
 		float x1 = touchLine.get();
-		float y1 = touchLine.get();
-		float z1 = touchLine.get();
+//		float y1 = touchLine.get();
+//		float z1 = touchLine.get();
 		touchLine.put(x1);
 		touchLine.put(y);
 		touchLine.put(1);
@@ -364,7 +360,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		Point ans[] = new Point[2];
 		float x1 = touchLine.get();
 		float y1 = touchLine.get();
-		float z1 = touchLine.get();
+//		float z1 = touchLine.get();
 		float x2 = touchLine.get();
 		float y2 = touchLine.get();
 		touchLine.position(0);
@@ -426,20 +422,19 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	}
 	
 	public void setAnimationLength(float newLength) {
-		long now = SystemClock.uptimeMillis();
-		float timeLapsed = (now - startTime) / 1000.0f;
-		float percentDone = timeLapsed / animationLength;
-		float endTime = now/1000.0f + newLength;
-		float newStartTime = (now/1000.0f - percentDone*endTime) / (1-percentDone);
-		
-		startTime       = (long) (newStartTime*1000.0f);
-		animationLength = newLength;
-	}
-	
-	public void setPhoneNormal(float nx, float ny, float nz) {
-		this.nx = nx;
-		this.ny = ny;
-		this.nz = nz;
+		synchronized (lock) {
+			long now = SystemClock.uptimeMillis();
+			float timeLapsed = (now - startTime) / 1000.0f;
+			float percentDone = timeLapsed / animationLength;
+			if(newLength > 0.0f) {
+				float endTime = now/1000.0f + newLength;
+				float newStartTime = (now/1000.0f - percentDone*endTime) / (1-percentDone);
+				startTime       = (long) (newStartTime*1000.0f);
+				animationLength = newLength;
+			} else {
+				animationLength = now-startTime;
+			}
+		}
 	}
 	
 	public void rotateView(float dTheta, float dPhi) {

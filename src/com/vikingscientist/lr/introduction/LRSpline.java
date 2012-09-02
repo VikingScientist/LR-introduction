@@ -35,8 +35,8 @@ public class LRSpline {
 	// break-point stepping splitting
 	Bspline activeB;
 	MeshLine activeM;
-	boolean breakStepOne = false;
-	boolean breakStepTwo = false;
+	boolean breakStepOne = true;
+	boolean breakStepTwo = true;
 	boolean inStepOne;
 	boolean inStepTwo;
 	
@@ -114,9 +114,6 @@ public class LRSpline {
 		supportLinesSize = (p1+p2+4)*2;
 		
 		initBuffers();
-		
-//		for(Bspline b : functions) 
-//			Log.println(Log.ASSERT, "all hash values", "" + b.hashCode() + " for spline " + b);
 		
 	}
 	
@@ -307,13 +304,6 @@ public class LRSpline {
 		perspLineVertices.position(0);
 		perspTriangleStrip.position(0);
 		perspTriangles.position(0);
-		
-//		for(int i=0; i<nVerts; i+=3)
-//			Log.println(Log.DEBUG, "Vertex buffer", String.format("(%.3f, %.3f, %.3f)", verts[i], verts[i+1], verts[i+2]));
-//		for(int i=0; i<perspTriangleCount; i++)
-//			Log.println(Log.DEBUG, "Index TRI buffer", "" + sTri[i]);
-//		for(int i=0; i<perspLineCount; i++)
-//			Log.println(Log.DEBUG, "Index LINE buffer", "" + sLine[i]);
 	}
 	
 	public void initBuffers() {
@@ -458,10 +448,6 @@ public class LRSpline {
 		supportLines.put((short) 2);
 		supportLines.put((short) 1);
 		supportLines.put((short) 3);
-		
-//		supportVertices.put(b.getKnotU(0));
-//		supportVertices.put(b.getKnotV(0));
-//		supportVertices.put(0);
 
 		selectedSpline.position(0);
 		supportVertices.position(0);
@@ -497,7 +483,7 @@ public class LRSpline {
 	}
 	
 	public void expandKnotSpans() {
-		Log.println(Log.ASSERT, "expandKnotSpan", "Expanding knot lines");
+//		Log.println(Log.ASSERT, "expandKnotSpan", "Expanding knot lines");
 		for(MeshLine m : lines) {
 			m.constPar *= 2;
 			m.start    *= 2;
@@ -510,7 +496,7 @@ public class LRSpline {
 	}
 	
 	public void contractKnotSpans() {
-		Log.println(Log.ASSERT, "contractKnotSpan", "Contracing knot lines");
+//		Log.println(Log.ASSERT, "contractKnotSpan", "Contracing knot lines");
 		for(MeshLine m : lines) {
 			m.constPar /= 2;
 			m.start    /= 2;

@@ -24,12 +24,6 @@ public class Shaders {
     int fragmentShader  ;
     int persVertShader  ;
     int persFragShader  ;
-    
-//    int attPosStart = 0;
-//    int attPos      = 1;
-//    int uniMVP      = 0;
-//    int uniTime     = 1;
-//    int uniColor    = 2;
 		
 	public Shaders(Context ctx) {
 		

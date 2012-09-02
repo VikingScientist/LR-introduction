@@ -1,9 +1,6 @@
 package com.vikingscientist.lr.introduction;
 
 import android.app.Activity;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -51,12 +48,10 @@ public class MainActivity extends Activity implements OnClickListener {
     
     public void onResume() {
     	super.onResume();
-    	sensors.registerListener(surfaceView, sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
     }
     
     public void onPause() {
     	super.onPause();
-    	sensors.unregisterListener(surfaceView);
     }
     
     public void onStop() {

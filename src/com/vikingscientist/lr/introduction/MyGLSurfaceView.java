@@ -3,9 +3,6 @@ package com.vikingscientist.lr.introduction;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
 import android.opengl.GLSurfaceView;
 import android.os.SystemClock;
 import android.util.AttributeSet;
@@ -16,7 +13,7 @@ import android.view.View.OnClickListener;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
-public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, SensorEventListener {
+public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 
 	MyRenderer renderer; 
 	Activity owner;
@@ -271,24 +268,5 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 	   }
 	   return false;
 	}
-	
-
-	public void onAccuracyChanged(Sensor arg0, int arg1) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	public void onSensorChanged(SensorEvent event) {
-		if(!inPerspectiveView)
-			return;
-		if (event.sensor.getType()==Sensor.TYPE_ACCELEROMETER) {
-			float nx=event.values[0];
-            float ny=event.values[1];
-            float nz=event.values[2];
-//            Log.println(Log.DEBUG, "sensor ACCELEROMETER event", String.format("normal = [%.3f, %.3f, %.3f]", nx,ny,nz));
-            renderer.setPhoneNormal(nx, ny, nz);
-		} 
-	}
-	
 
 }
