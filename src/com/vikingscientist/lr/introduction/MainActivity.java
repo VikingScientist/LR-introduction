@@ -52,6 +52,7 @@ public class MainActivity extends Activity implements OnClickListener {
     
     public void onPause() {
     	super.onPause();
+    	surfaceView.finishAnimation();
     }
     
     public void onStop() {

@@ -26,7 +26,7 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 	RadioButton lineButton;
 	TextView outKnot[] = new TextView[2];
 	
-	volatile boolean inAnimation;
+	volatile boolean inAnimation            = false;
 	volatile boolean inAnimationFastForward = false;
 	
 	private boolean inPerspectiveView  = false;
@@ -71,6 +71,13 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
     	renderer.cBsplineSelected = res.getColor(R.color.bsplineSelected);
     	renderer.cSupport         = res.getColor(R.color.support);
     	renderer.cBackground      = res.getColor(R.color.background);
+	}
+	
+	public void finishAnimation() {
+		if(inAnimation) {
+			renderer.setAnimationLength(-1.0f);
+			inAnimationFastForward = true;
+		}
 	}
 	
 	public void setAnimation(Animation animate) {
@@ -241,6 +248,16 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 	public void setOutKnot(TextView u, TextView v) {
 		outKnot[0] = u;
 		outKnot[1] = v;
+	}
+	
+	public void setOutKnotSpline(Bspline b) {
+		if(b == null) {
+			outKnot[0].setText("");
+			outKnot[1].setText("");
+		} else {
+			outKnot[0].setText(b.getKnotU());
+			outKnot[1].setText(b.getKnotV());
+		}
 	}
 
 	public void onClick(View v) {

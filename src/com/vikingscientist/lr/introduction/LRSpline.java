@@ -37,8 +37,8 @@ public class LRSpline {
 	MeshLine activeM;
 	boolean breakStepOne = true;
 	boolean breakStepTwo = true;
-	boolean inStepOne;
-	boolean inStepTwo;
+	boolean inStepOne    = false;
+	boolean inStepTwo    = false;
 	
 	// rendering information and buffers
 	volatile ShortBuffer selectedSpline;

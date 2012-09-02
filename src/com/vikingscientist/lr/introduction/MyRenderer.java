@@ -330,9 +330,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	}
 	
 	public void setNewLineEndX(float x) {
-//		float x1 = touchLine.get();
+		float x1 = touchLine.get();
 		float y1 = touchLine.get();
-//		float z1 = touchLine.get();
+		float z1 = touchLine.get();
 		touchLine.put(x);
 		touchLine.put(y1);
 		touchLine.put(touchLineZ);
@@ -340,8 +340,8 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	}
 	public void setNewLineEndY(float y) {
 		float x1 = touchLine.get();
-//		float y1 = touchLine.get();
-//		float z1 = touchLine.get();
+		float y1 = touchLine.get();
+		float z1 = touchLine.get();
 		touchLine.put(x1);
 		touchLine.put(y);
 		touchLine.put(1);
@@ -360,7 +360,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		Point ans[] = new Point[2];
 		float x1 = touchLine.get();
 		float y1 = touchLine.get();
-//		float z1 = touchLine.get();
+		float z1 = touchLine.get();
 		float x2 = touchLine.get();
 		float y2 = touchLine.get();
 		touchLine.position(0);
@@ -378,11 +378,13 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	public void setSelectedSpline(Bspline b) {
 		displaySelectedSpline = true;
 		spline.setSelectedSpline(b);
+		parent.setOutKnotSpline(b);
 	}
 	
 	
 	public void unselectSpline() {
 		displaySelectedSpline = false;
+		parent.setOutKnotSpline(null);
 	}
 	
 	public void finishPerspective() {
