@@ -312,6 +312,18 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		touchLine.position(0);
 	}
 	
+	public void setNewLine(MeshLine m) {
+//		Log.println(Log.INFO, "setTouchLine", "p1 = (" + x1 + ", " + y1 + ")   p2 =(" + x2 + ", " + y2 + ")   " + display);
+		touchLine.position(0);
+		touchLine.put((m.span_u) ? m.start    : m.constPar);
+		touchLine.put((m.span_u) ? m.constPar : m.start   );
+		touchLine.put(touchLineZ);
+		touchLine.put((m.span_u) ? m.stop     : m.constPar);
+		touchLine.put((m.span_u) ? m.constPar : m.stop    );
+		touchLine.put(touchLineZ);
+		touchLine.position(0);
+	}
+	
 	public void setNewLineEndPos(Point p) {
 //		Log.println(Log.INFO, "setTouchLine", "p1 = (" + x1 + ", " + y1 + ")   p2 =(" + x2 + ", " + y2 + ")   " + display);
 		touchLine.position(3);
@@ -411,6 +423,17 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			return -1;
 		}
 		return timeLapsed;
+	}
+	
+	public void setAnimationLength(float newLength) {
+		long now = SystemClock.uptimeMillis();
+		float timeLapsed = (now - startTime) / 1000.0f;
+		float percentDone = timeLapsed / animationLength;
+		float endTime = now/1000.0f + newLength;
+		float newStartTime = (now/1000.0f - percentDone*endTime) / (1-percentDone);
+		
+		startTime       = (long) (newStartTime*1000.0f);
+		animationLength = newLength;
 	}
 	
 	public void setPhoneNormal(float nx, float ny, float nz) {

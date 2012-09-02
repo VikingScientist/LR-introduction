@@ -60,6 +60,14 @@ public class Bspline {
 		origin.multiply(2);
 	}
 	
+	public void halveKnotSpan() {
+		for(int i=0; i<knotU.length; i++)
+			knotU[i] /= 2;
+		for(int i=0; i<knotV.length; i++)
+			knotV[i] /= 2;
+		origin.multiply(0.5f);
+	}
+	
 	public int umin() {
 		return knotU[0];
 	}

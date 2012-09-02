@@ -21,15 +21,24 @@ public class LRSpline {
 	
 	// core LR B-spline information
 	int p1, p2;
-	ArrayList<MeshLine> lines            = new ArrayList<MeshLine>();
-	HashSet<Bspline>    functions        = new HashSet<Bspline>();
-	ArrayList<Bspline>  animationSplines = new ArrayList<Bspline>();
+	volatile ArrayList<MeshLine> lines            = new ArrayList<MeshLine>();
+	volatile ArrayList<Bspline>  newSpline        = new ArrayList<Bspline>();
+	volatile HashSet<Bspline>    functions        = new HashSet<Bspline>();
+	volatile ArrayList<Bspline>  animationSplines = new ArrayList<Bspline>();
 	
 	// nice-to-have variables
 	int uMax;
 	int vMax;
 	float zMax = 0.001f;
 	boolean lastSnappedToUspan;
+	
+	// break-point stepping splitting
+	Bspline activeB;
+	MeshLine activeM;
+	boolean breakStepOne = true;
+	boolean breakStepTwo = false;
+	boolean inStepOne;
+	boolean inStepTwo;
 	
 	// rendering information and buffers
 	volatile ShortBuffer selectedSpline;
@@ -42,7 +51,7 @@ public class LRSpline {
 	volatile ShortBuffer circInterior;
 	volatile ShortBuffer circEdge;
 	volatile FloatBuffer circVertsOrigin;
-	volatile FloatBuffer perspVertices; // for perspective view
+	volatile FloatBuffer perspVertices;     // for perspective view
 	volatile FloatBuffer perspLineVertices; // for perspective view 
 	volatile ShortBuffer perspLines;
 	volatile ShortBuffer perspTriangleStrip;
@@ -341,7 +350,7 @@ public class LRSpline {
 		supportLines = bb.asShortBuffer();
 	}
 	
-	public void buildBuffers() {
+	public synchronized void buildBuffers() {
 		// reset buffer pointers
 		linePoints.position(0);
 		circVerts.position(0);
@@ -423,7 +432,7 @@ public class LRSpline {
 			Log.println(Log.ERROR, "MyRenderer::setSelectedSpline", "Bspline not found in LRSpline object");
 			return;
 		}
-		int nSplines = getNSplines();
+		int nSplines = getNvisibleSplines();
 		for(int i=0; i<LRSpline.CIRCLE_POINTS; i++) {
 			selectedSpline.put((short) globI);
 			selectedSpline.put((short) (nSplines + LRSpline.CIRCLE_POINTS*globI +   i                         ));
@@ -500,6 +509,19 @@ public class LRSpline {
 		uMax *= 2;
 	}
 	
+	public void contractKnotSpans() {
+		Log.println(Log.ASSERT, "contractKnotSpan", "Contracing knot lines");
+		for(MeshLine m : lines) {
+			m.constPar /= 2;
+			m.start    /= 2;
+			m.stop     /= 2;
+		}
+		for(Bspline b : functions)
+			b.halveKnotSpan();
+		vMax /= 2;
+		uMax /= 2;
+	}
+	
 	public int getMaxLineMult() {
 		return multCount.length;
 	}
@@ -532,8 +554,8 @@ public class LRSpline {
 		return -1;
 	}
 	
-	public int getNSplines() {
-		return functions.size();
+	public int getNvisibleSplines() {
+		return functions.size() + animationSplines.size();
 	}
 	
 	public Point snapEndToMesh(Point p, boolean spanU) {
@@ -616,8 +638,9 @@ public class LRSpline {
 		}
 	}
 	
-	public void terminateAnimation() {
-		animationSplines.clear();
+	public synchronized void terminateAnimation() {
+		if(!inStepOne && ! inStepTwo)
+			animationSplines.clear();
 	}
 	
 	public boolean insertLine(Point p1, Point p2) {
@@ -641,11 +664,13 @@ public class LRSpline {
 		if(start == stop)
 			return false;
 		
+		boolean didExpandKnots = false;
 		if(constPar - FloatMath.floor(constPar) != 0) {
 			expandKnotSpans();
 			start	 *= 2;
 			stop	 *= 2;
 			constPar *= 2;
+			didExpandKnots = true;
 		}
 		
 		for(Bspline b : functions)
@@ -675,39 +700,101 @@ public class LRSpline {
 			lines.add(newLine);
 		}
 		
-		Stack<Bspline> newSpline    = new Stack<Bspline>();
-		Stack<Bspline> removeSpline = new Stack<Bspline>();
-		animationSplines.clear();
-		boolean dimensionIncrease = false;
 		for(Bspline b : functions) {
 			if(b.splitBy(newLine) && !b.hasLine(newLine)) {
-				Bspline newB[] = b.split(!newLine.span_u, newLine.constPar);
-				removeSpline.push(b);
-				newSpline.push(newB[0]);
-				newSpline.push(newB[1]);
-				dimensionIncrease = true;
+				activeM = newLine;
+				activeB = b;
+				inStepOne = true;
+				return true;
 			}
 		}
 		
-		if(!dimensionIncrease) {
-			lines.remove(newLine);
-			return false;
+		lines.remove(newLine);
+		if(didExpandKnots)
+			contractKnotSpans();
+		
+		return false;
+		
+	}
+	
+	public boolean setNextFocus() {
+		Log.println(Log.DEBUG, "LRspline::setNextStuff", "entering");
+		if(inStepOne) {
+			for(Bspline b : functions) {
+				if(b.splitBy(activeM) && !b.hasLine(activeM)) {
+					activeB = b;
+					return true;
+				}
+			}
 		}
-//		Log.println(Log.ASSERT, "InsertLine beforemath", "# bsplines       = " + functions.size());
-//		Log.println(Log.ASSERT, "InsertLine beforemath", "# lines          = " + lines.size());
-//		Log.println(Log.ASSERT, "InsertLine beforemath", "# new splines    = " + newSpline.size());
-//		Log.println(Log.ASSERT, "InsertLine beforemath", "# remove splines = " + removeSpline.size());
-//		Log.println(Log.ASSERT, "InsertLine beforemath", "");
+		inStepTwo = true;
+		for(int i=newSpline.size(); i-->0 ; ) {
+			Bspline b = newSpline.get(i);
+			for(MeshLine m : lines) {
+				if(b.splitBy(m) && !b.hasLine(m)) {
+					activeM = m;
+					activeB = b;
+					return true;
+				}
+			}
+		}
+		
+		cleanupSplitting();
+		Log.println(Log.DEBUG, "LRspline::setNextStuff", "returning false");
+		return false;
+	}
+	
+	public void cleanupSplitting() {
+		for(Bspline b : newSpline)
+			functions.add(b);
+		newSpline.clear();
+		
+//		for(Bspline b : functions)
+//			Log.println(Log.DEBUG, "split review", b + " from " + b.origin + " to " + b.getGrevillePoint());
+
+		inStepOne = false;
+		inStepTwo = false;
+	}
+	
+	public boolean inSplitting() {
+		return inStepOne || inStepTwo;
+	}
+	
+	public boolean isBreaking() {
+		return breakStepOne || breakStepTwo;
+	}
+	
+	public synchronized boolean continueSplit() {
+		Stack<Bspline> removeSpline = new Stack<Bspline>();
+//		animationSplines.clear();
+//		newSpline.clear();
+		for(Bspline b : animationSplines)
+			b.origin = b.getGrevillePoint();
+		
+		for(Bspline b : functions) {
+			if(b.splitBy(activeM) && !b.hasLine(activeM)) {
+				Bspline newB[] = b.split(!activeM.span_u, activeM.constPar);
+				removeSpline.push(b);
+				newSpline.add(newB[0]);
+				newSpline.add(newB[1]);
+				if(breakStepOne) {
+					functions.remove(b);
+					animationSplines.add(newB[0]);
+					animationSplines.add(newB[1]);
+					return false;
+				}
+			}
+		}
 		
 		while(!newSpline.isEmpty()) {
-			Bspline b = newSpline.pop();
+			Bspline b = newSpline.remove(newSpline.size()-1);
 			boolean isSplit = false;
 			for(MeshLine m : lines) {
 				if(b.splitBy(m) && !b.hasLine(m)) {
 					Bspline newB[] = b.split(!m.span_u, m.constPar);
 					removeSpline.push(b);
-					newSpline.push(newB[0]);
-					newSpline.push(newB[1]);
+					newSpline.add(newB[0]);
+					newSpline.add(newB[1]);
 					isSplit = true;
 					break;
 				}
@@ -717,28 +804,11 @@ public class LRSpline {
 				animationSplines.add(b);
 			}
 		}
-		
-
-//		Log.println(Log.ASSERT, "InsertLine midmath", "# bsplines       = " + functions.size());
-//		Log.println(Log.ASSERT, "InsertLine midmath", "# lines          = " + lines.size());
-//		Log.println(Log.ASSERT, "InsertLine midmath", "# new splines    = " + newSpline.size());
-//		Log.println(Log.ASSERT, "InsertLine midmath", "# remove splines = " + removeSpline.size());
-//		Log.println(Log.ASSERT, "InsertLine midmath", "");
 
 		while(!removeSpline.isEmpty())
 			functions.remove(removeSpline.pop());
-		
-//		Log.println(Log.ASSERT, "InsertLine aftermath", "# bsplines       = " + functions.size());
-//		Log.println(Log.ASSERT, "InsertLine aftermath", "# lines          = " + lines.size());
-//		Log.println(Log.ASSERT, "InsertLine aftermath", "# new splines    = " + newSpline.size());
-//		Log.println(Log.ASSERT, "InsertLine aftermath", "# remove splines = " + removeSpline.size());
-//		Log.println(Log.ASSERT, "InsertLine aftermath", "" );
-//		
-//		for(Bspline b : functions) 
-//			Log.println(Log.ASSERT, "all hash values", "" + b.hashCode() + " for spline " + b);
-		
-		for(Bspline b : functions)
-			Log.println(Log.DEBUG, "split review", b + " from " + b.origin + " to " + b.getGrevillePoint());
+
+		cleanupSplitting();
 		
 		return true;
 	}

@@ -20,7 +20,7 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 
 	MyRenderer renderer; 
 	Activity owner;
-	LRSpline spline = new LRSpline(2, 2, 4, 3);
+	LRSpline spline = new LRSpline(2, 2, 7, 5);
 	
 	int width;
 	int height;
@@ -30,8 +30,11 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 	TextView outKnot[] = new TextView[2];
 	
 	volatile boolean inAnimation;
+	volatile boolean inAnimationFastForward = false;
 	
 	private boolean inPerspectiveView  = false;
+	
+	private boolean showOffBreakSpline  = true;
 	
 	volatile long startTime = -1;
 	float lastX;
@@ -74,6 +77,7 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 	}
 	
 	public void setAnimation(Animation animate) {
+		Log.println(Log.DEBUG, "setAnimation", "animation start: " + animate);
 		
 		if(animate == Animation.BSPLINE_SPLIT) {
 			renderer.startAnimation(2.0f, animate);
@@ -101,11 +105,17 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 			return; // to not set inAnimation=true
 		}
 		inAnimation = true;
+		inAnimationFastForward = false;
 	}
 	
 	public boolean onTouchEvent(MotionEvent e) {
-		if(inAnimation)
+		if(inAnimation) {
+			if(e.getAction() == MotionEvent.ACTION_DOWN && !inAnimationFastForward) {
+				renderer.setAnimationLength(0.2f);
+				inAnimationFastForward = true; // in case of double-clicking we dont want double-fast-forwarding
+			}
 			return true;
+		}
 		
 		float x = e.getX();
 		float y = e.getY();
@@ -133,6 +143,29 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 			}
 			return true;
 		}
+		
+		if(spline.inSplitting()) {
+			if(e.getAction() == MotionEvent.ACTION_DOWN) {
+				if(showOffBreakSpline) {
+					Log.println(Log.DEBUG, "insplitting tuoch", "trying starting animation");
+					spline.continueSplit();
+					renderer.terminateNewLine();
+					renderer.unselectSpline();
+					setAnimation(Animation.BSPLINE_SPLIT);
+				} else {
+					Log.println(Log.DEBUG, "insplitting tuoch", "setting next split guy");
+					if(spline.setNextFocus()) {
+						renderer.setSelectedSpline(spline.activeB);
+						renderer.setNewLine(       spline.activeM);
+						requestRender();
+					} else {
+						spline.terminateAnimation();
+					}
+				}
+				showOffBreakSpline = !showOffBreakSpline;
+			}
+			return true;
+		}
 
 		if(lineButton.isChecked() ) {
 			// insert new-line input events
@@ -156,8 +189,16 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 					renderer.terminateNewLine();
 					requestRender();
 				} else if(spline.insertLine(line[0], snapEnd)) {
-					renderer.terminateNewLine();
-					setAnimation(Animation.BSPLINE_SPLIT);
+					if(spline.isBreaking() ) {
+						renderer.setSelectedSpline(spline.activeB);
+						renderer.setNewLine(       spline.activeM);
+						requestRender();
+						showOffBreakSpline = true;
+					} else {
+						spline.continueSplit();
+						renderer.terminateNewLine();
+						setAnimation(Animation.BSPLINE_SPLIT);
+					}
 				} else {
 					setAnimation(Animation.MESHLINE_FADE);
 				}
