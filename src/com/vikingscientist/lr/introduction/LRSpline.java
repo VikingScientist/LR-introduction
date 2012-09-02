@@ -16,6 +16,8 @@ public class LRSpline {
 	// rendering controls
 	static final int CIRCLE_POINTS = 20;
 	static final int PLOT_POINTS   = 50;
+	static final int MAX_SPLINES   = 1024;
+	static final int MAX_LINES     = 1024;
 	
 	// core LR B-spline information
 	int p1, p2;
@@ -30,6 +32,11 @@ public class LRSpline {
 	boolean lastSnappedToUspan;
 	
 	// rendering information and buffers
+	volatile ShortBuffer selectedSpline;
+	volatile FloatBuffer supportVertices;
+	volatile ShortBuffer supportLines;
+	volatile int         supportLinesSize;
+	
 	volatile FloatBuffer linePoints;
 	volatile FloatBuffer circVerts;
 	volatile ShortBuffer circInterior;
@@ -94,6 +101,10 @@ public class LRSpline {
 				functions.add(b);
 			}
 		}
+		
+		supportLinesSize = (p1+p2+4)*2;
+		
+		initBuffers();
 		
 //		for(Bspline b : functions) 
 //			Log.println(Log.ASSERT, "all hash values", "" + b.hashCode() + " for spline " + b);
@@ -296,34 +307,56 @@ public class LRSpline {
 //			Log.println(Log.DEBUG, "Index LINE buffer", "" + sLine[i]);
 	}
 	
-	public void buildBuffers() {
-		// allocate new buffers
-		int nBsplines = functions.size() + animationSplines.size();
-		
-		ByteBuffer bb = ByteBuffer.allocateDirect(lines.size()*4*6);
+	public void initBuffers() {
+		ByteBuffer bb = ByteBuffer.allocateDirect(MAX_LINES*4*6);
 		bb.order(ByteOrder.nativeOrder());
 		linePoints = bb.asFloatBuffer();
 		
-		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*3*nBsplines);
+		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*3*MAX_SPLINES);
 		bb.order(ByteOrder.nativeOrder());
 		circVerts = bb.asFloatBuffer();
 		
-		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*3*nBsplines);
+		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*3*MAX_SPLINES);
 		bb.order(ByteOrder.nativeOrder());
 		circInterior = bb.asShortBuffer();
 		
-		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*2*nBsplines);
+		bb = ByteBuffer.allocateDirect(2*(CIRCLE_POINTS)*2*MAX_SPLINES);
 		bb.order(ByteOrder.nativeOrder());
 		circEdge = bb.asShortBuffer();
 		
-		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*3*nBsplines);
+		bb = ByteBuffer.allocateDirect(4*(CIRCLE_POINTS+1)*3*MAX_SPLINES);
 		bb.order(ByteOrder.nativeOrder());
 		circVertsOrigin = bb.asFloatBuffer();
 		
+		bb = ByteBuffer.allocateDirect(2*LRSpline.CIRCLE_POINTS*3);
+		bb.order(ByteOrder.nativeOrder());
+		selectedSpline = bb.asShortBuffer();
+		
+		bb = ByteBuffer.allocateDirect((p1+2)*(p2+2)*3*4);
+		bb.order(ByteOrder.nativeOrder());
+		supportVertices = bb.asFloatBuffer();
+		
+		bb = ByteBuffer.allocateDirect(2 * supportLinesSize);
+		bb.order(ByteOrder.nativeOrder());
+		supportLines = bb.asShortBuffer();
+	}
+	
+	public void buildBuffers() {
+		// reset buffer pointers
+		linePoints.position(0);
+		circVerts.position(0);
+		circVertsOrigin.position(0);
+		circInterior.position(0);
+		circEdge.position(0);
+		selectedSpline.position(0);
+		supportVertices.position(0);
+		supportLines.position(0);
+		
+		// measure buffer sizes
+		int nBsplines = functions.size() + animationSplines.size();
 		circIntCount  = (CIRCLE_POINTS)*3*nBsplines;
 		circEdgeCount = (CIRCLE_POINTS)*2*nBsplines;
-		
-		
+
 		// evaluate the line stuff
 		int maxMult = (p1 > p2) ? p1+1 : p2+1;
 		multCount = new int[maxMult];
@@ -379,7 +412,51 @@ public class LRSpline {
 		circVertsOrigin.position(0);
 		circInterior.position(0);
 		circEdge.position(0);
+		selectedSpline.position(0);
+		supportVertices.position(0);
+		supportLines.position(0);
+	}
+	
+	public void setSelectedSpline(Bspline b) {
+		int globI = getIndexOf(b);
+		if(globI < 0) {
+			Log.println(Log.ERROR, "MyRenderer::setSelectedSpline", "Bspline not found in LRSpline object");
+			return;
+		}
+		int nSplines = getNSplines();
+		for(int i=0; i<LRSpline.CIRCLE_POINTS; i++) {
+			selectedSpline.put((short) globI);
+			selectedSpline.put((short) (nSplines + LRSpline.CIRCLE_POINTS*globI +   i                         ));
+			selectedSpline.put((short) (nSplines + LRSpline.CIRCLE_POINTS*globI + (i+1)%LRSpline.CIRCLE_POINTS));
+		}
+		int p1 = getP(0);
+		int p2 = getP(1);
+		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
+		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
+		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
+		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
+		for(int i=1; i<p1+1; i++) {
+			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
+			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
+		}
+		for(int i=1; i<p2+1; i++) {
+			supportVertices.put(b.getKnotU( 0  )); supportVertices.put(b.getKnotV( i )); supportVertices.put(0);
+			supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV( i )); supportVertices.put(0);
+		}
+		for(int i=0; i<supportLinesSize-4; i++)
+			supportLines.put((short) i);
+		supportLines.put((short) 0);
+		supportLines.put((short) 2);
+		supportLines.put((short) 1);
+		supportLines.put((short) 3);
 		
+//		supportVertices.put(b.getKnotU(0));
+//		supportVertices.put(b.getKnotV(0));
+//		supportVertices.put(0);
+
+		selectedSpline.position(0);
+		supportVertices.position(0);
+		supportLines.position(0);
 	}
 	
 	public void putCenterPoint(Bspline b) {

@@ -30,10 +30,6 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	float tmpmatrix[] = new float[16];
 	
 	FloatBuffer touchLine;
-	ShortBuffer selectedSpline;
-	FloatBuffer supportVertices;
-	ShortBuffer supportLines;
-	private int supportLinesSize;
 	
 	private boolean displayTouchLine      = false;
 	private boolean displaySelectedSpline = false;
@@ -112,7 +108,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 			linesDrawn += spline.getMultCount(i+1);
 		}
 		if(displaySelectedSpline) {
-			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, supportVertices);
+			GLES20.glVertexAttribPointer(sPos, 3, GLES20.GL_FLOAT, false, 0, spline.supportVertices);
 			GLES20.glUniform4f(sCol, Color.red(  cSupport)/256.0f,
 					                 Color.green(cSupport)/256.0f,
 					                 Color.blue( cSupport)/256.0f,
@@ -123,7 +119,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
                                      Color.blue( cBsplineSelected)/256.0f,
                                      Color.alpha(cBsplineSelected)/256.0f);
 			GLES20.glLineWidth(3);
-			GLES20.glDrawElements(GLES20.GL_LINES, supportLinesSize, GLES20.GL_UNSIGNED_SHORT, supportLines);
+			GLES20.glDrawElements(GLES20.GL_LINES, spline.supportLinesSize, GLES20.GL_UNSIGNED_SHORT, spline.supportLines);
 		}
 	}
 	
@@ -154,7 +150,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 					                 Color.green(cBsplineSelected)/256.0f,
 					                 Color.blue( cBsplineSelected)/256.0f,
 					                 Color.alpha(cBsplineSelected)/256.0f);
-			GLES20.glDrawElements(GLES20.GL_TRIANGLES, LRSpline.CIRCLE_POINTS*3, GLES20.GL_UNSIGNED_SHORT, selectedSpline);
+			GLES20.glDrawElements(GLES20.GL_TRIANGLES, LRSpline.CIRCLE_POINTS*3, GLES20.GL_UNSIGNED_SHORT, spline.selectedSpline);
 		}
 		
 	}
@@ -249,6 +245,9 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		// get timer (for animations)
 		float t = getTime();
 		
+		// evaluate all spline stuff
+		spline.buildBuffers();
+		
 		// clear screen
 		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 		
@@ -303,33 +302,14 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 		
 		// make, compile and link all programs
 		this.shader = new Shaders(ctx);
-
-		// build all spline object stuff
-		spline.buildBuffers();
 		
 		// build buffers for support drawing
 		ByteBuffer bb ;
-		supportLinesSize =  (spline.getP(0)+spline.getP(1)+4)*2;
 		bb = ByteBuffer.allocateDirect(2*3*4);
 		bb.order(ByteOrder.nativeOrder());
 		touchLine = bb.asFloatBuffer();
 		
-		bb = ByteBuffer.allocateDirect(2*LRSpline.CIRCLE_POINTS*3);
-		bb.order(ByteOrder.nativeOrder());
-		selectedSpline = bb.asShortBuffer();
-		
-		bb = ByteBuffer.allocateDirect((spline.getP(0)+2)*(spline.getP(1)+2)*3*4);
-		bb.order(ByteOrder.nativeOrder());
-		supportVertices = bb.asFloatBuffer();
-		
-		bb = ByteBuffer.allocateDirect(2 * supportLinesSize);
-		bb.order(ByteOrder.nativeOrder());
-		supportLines = bb.asShortBuffer();
-
 		touchLine.position(0);
-		selectedSpline.position(0);
-		supportVertices.position(0);
-		supportLines.position(0);
 	}
 	
 	public void setNewLineEndPos(Point p) {
@@ -386,49 +366,12 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	public void terminateNewLine() {
 		displayTouchLine = false;
 	}
-	
-	public void setSelectedSpline(Bspline b) {
-		int globI = spline.getIndexOf(b);
-		if(globI < 0) {
-			Log.println(Log.ERROR, "MyRenderer::setSelectedSpline", "Bspline not found in LRSpline object");
-			return;
-		}
-		int nSplines = spline.getNSplines();
-		for(int i=0; i<LRSpline.CIRCLE_POINTS; i++) {
-			selectedSpline.put((short) globI);
-			selectedSpline.put((short) (nSplines + LRSpline.CIRCLE_POINTS*globI +   i                         ));
-			selectedSpline.put((short) (nSplines + LRSpline.CIRCLE_POINTS*globI + (i+1)%LRSpline.CIRCLE_POINTS));
-		}
-		int p1 = spline.getP(0);
-		int p2 = spline.getP(1);
-		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
-		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
-		supportVertices.put(b.getKnotU(  0 )); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
-		supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
-		for(int i=1; i<p1+1; i++) {
-			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(  0 )); supportVertices.put(0);
-			supportVertices.put(b.getKnotU( i )); supportVertices.put(b.getKnotV(p2+1)); supportVertices.put(0);
-		}
-		for(int i=1; i<p2+1; i++) {
-			supportVertices.put(b.getKnotU( 0  )); supportVertices.put(b.getKnotV( i )); supportVertices.put(0);
-			supportVertices.put(b.getKnotU(p1+1)); supportVertices.put(b.getKnotV( i )); supportVertices.put(0);
-		}
-		for(int i=0; i<supportLinesSize-4; i++)
-			supportLines.put((short) i);
-		supportLines.put((short) 0);
-		supportLines.put((short) 2);
-		supportLines.put((short) 1);
-		supportLines.put((short) 3);
-		
-//		supportVertices.put(b.getKnotU(0));
-//		supportVertices.put(b.getKnotV(0));
-//		supportVertices.put(0);
 
-		selectedSpline.position(0);
-		supportVertices.position(0);
-		supportLines.position(0);
+	public void setSelectedSpline(Bspline b) {
 		displaySelectedSpline = true;
+		spline.setSelectedSpline(b);
 	}
+	
 	
 	public void unselectSpline() {
 		displaySelectedSpline = false;
@@ -458,7 +401,6 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 				terminateNewLine();
 			} else if(animation == Animation.BSPLINE_SPLIT) {
 				spline.terminateAnimation();
-				spline.buildBuffers();
 			} else if(animation == Animation.PERSPECTIVE_REVERSE) {
 				finishPerspective();
 			}

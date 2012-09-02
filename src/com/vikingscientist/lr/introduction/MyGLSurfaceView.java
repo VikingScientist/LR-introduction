@@ -157,7 +157,6 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 					requestRender();
 				} else if(spline.insertLine(line[0], snapEnd)) {
 					renderer.terminateNewLine();
-					spline.buildBuffers();
 					setAnimation(Animation.BSPLINE_SPLIT);
 				} else {
 					setAnimation(Animation.MESHLINE_FADE);
