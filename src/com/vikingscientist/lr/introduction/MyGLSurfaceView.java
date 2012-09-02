@@ -20,7 +20,7 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener, S
 
 	MyRenderer renderer; 
 	Activity owner;
-	LRSpline spline = new LRSpline(2, 2, 7, 5);
+	LRSpline spline = new LRSpline(2, 2, 8, 7);
 	
 	int width;
 	int height;

@@ -192,15 +192,29 @@ public class Bspline {
 	
 	public boolean splitBy(MeshLine m) {
 		if(m.span_u) {
-			return knotV[0]              < m.constPar &&
+			return  knotV[0]              < m.constPar &&
 					knotV[knotV.length-1] > m.constPar &&
 					knotU[0]              >= m.start &&
 					knotU[knotU.length-1] <= m.stop;	
 		} else {
-			return knotU[0]              < m.constPar &&
+			return  knotU[0]              < m.constPar &&
 					knotU[knotU.length-1] > m.constPar &&
 					knotV[0]              >= m.start &&
 					knotV[knotV.length-1] <= m.stop;
+		}
+	}
+	
+	public boolean overlaps(MeshLine m) {
+		if(m.span_u) {
+			return  knotV[0]              < m.constPar &&
+					knotV[knotV.length-1] > m.constPar &&
+					knotU[0]              < m.stop &&
+					knotU[knotU.length-1] > m.start;	
+		} else {
+			return  knotU[0]              < m.constPar &&
+					knotU[knotU.length-1] > m.constPar &&
+					knotV[0]              < m.stop &&
+					knotV[knotV.length-1] > m.start;
 		}
 	}
 	

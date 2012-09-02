@@ -35,7 +35,7 @@ public class LRSpline {
 	// break-point stepping splitting
 	Bspline activeB;
 	MeshLine activeM;
-	boolean breakStepOne = true;
+	boolean breakStepOne = false;
 	boolean breakStepTwo = false;
 	boolean inStepOne;
 	boolean inStepTwo;
@@ -147,7 +147,7 @@ public class LRSpline {
 		perspTriangleCount = 2*(PLOT_POINTS*PLOT_POINTS - 1);
 		perspLineCount     = 0;
 		for(MeshLine m : lines) {
-			if(b.splitBy(m))
+			if(b.overlaps(m))
 				perspLineCount += (PLOT_POINTS-1)*2;
 			else 
 				perspLineCount += 2;
@@ -251,7 +251,7 @@ public class LRSpline {
 		// build the line indices
 		k = 0;
 		for(MeshLine m : lines) {
-			if(b.splitBy(m)) {
+			if(b.overlaps(m)) {
 				dx = (float) ( (m.span_u) ? m.stop-m.start : 0.0 );
 				dy = (float) ( (m.span_u) ? 0.0 : m.stop-m.start );
 				float x1 = (m.span_u) ? m.start    : m.constPar;
@@ -546,10 +546,12 @@ public class LRSpline {
 	public int getIndexOf(Bspline spline) {
 		int i=0;
 		for(Bspline b : functions) {
-			if(b == spline)
-				return i;
-			else
-				i++;
+			if(b == spline) return i;
+			else            i++;
+		}
+		for(Bspline b : animationSplines) {
+			if(b == spline) return i;
+			else            i++;
 		}
 		return -1;
 	}
@@ -744,7 +746,7 @@ public class LRSpline {
 		return false;
 	}
 	
-	public void cleanupSplitting() {
+	public synchronized void cleanupSplitting() {
 		for(Bspline b : newSpline)
 			functions.add(b);
 		newSpline.clear();
@@ -795,6 +797,13 @@ public class LRSpline {
 					removeSpline.push(b);
 					newSpline.add(newB[0]);
 					newSpline.add(newB[1]);
+					if(breakStepTwo) {
+						functions.remove(b);
+						animationSplines.remove(b);
+						animationSplines.add(newB[0]);
+						animationSplines.add(newB[1]);
+						return false;
+					}
 					isSplit = true;
 					break;
 				}
