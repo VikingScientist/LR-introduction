@@ -35,8 +35,8 @@ public class LRSpline {
 	// break-point stepping splitting
 	Bspline activeB;
 	MeshLine activeM;
-	boolean breakStepOne = true;
-	boolean breakStepTwo = true;
+	boolean breakStepOne = false;
+	boolean breakStepTwo = false;
 	boolean inStepOne    = false;
 	boolean inStepTwo    = false;
 	
@@ -71,7 +71,7 @@ public class LRSpline {
 		
 		// build the global knot vector
 		int knotU[] = new int[p1+n1+1];
-		int knotV[] = new int[p1+n1+1];
+		int knotV[] = new int[p2+n2+1];
 		int k=0;
 		for(int i=0; i<p1+1; i++)
 			knotU[k++] = 0;
@@ -750,6 +750,11 @@ public class LRSpline {
 	
 	public boolean isBreaking() {
 		return breakStepOne || breakStepTwo;
+	}
+	
+	public void setBreakpoints(boolean doBreak) {
+		breakStepOne = doBreak;
+		breakStepTwo = doBreak;
 	}
 	
 	public synchronized boolean continueSplit() {

@@ -10,6 +10,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.CheckBox;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
@@ -22,6 +23,7 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 	int width;
 	int height;
 	
+	CheckBox breakpointButton;
 	RadioButton splineButton;
 	RadioButton lineButton;
 	TextView outKnot[] = new TextView[2];
@@ -39,6 +41,11 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 	final float phiScale   = 0.20f;
 	final float thetaScale = 0.28f;
 	Bspline nearestSpline ;
+	
+	public void resetLRSpline(int p1, int p2, int n1, int n2) {
+		spline = new LRSpline(p1,p2, n1,n2);
+		renderer.spline = spline;
+	}
 	
 	public MyGLSurfaceView(Context context) {
 		super(context);
@@ -245,6 +252,10 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 		lineButton = b;
 	}
 	
+	public void setBreakpointButton(CheckBox b) {
+		breakpointButton = b;
+	}
+	
 	public void setOutKnot(TextView u, TextView v) {
 		outKnot[0] = u;
 		outKnot[1] = v;
@@ -271,6 +282,9 @@ public class MyGLSurfaceView extends GLSurfaceView implements OnClickListener {
 			outKnot[1].setText("");
 			renderer.unselectSpline();
 			requestRender();
+		} else if(v == breakpointButton) {
+			Log.println(Log.DEBUG, "onClick()", "Breakpoint button clicked");
+			spline.setBreakpoints(breakpointButton.isChecked());
 		} else {
 			Log.println(Log.DEBUG, "onClick()", "Some button clicked");
 		}

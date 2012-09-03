@@ -56,7 +56,21 @@
             android:textColor="@color/textshaded"
             android:hint="@string/outKnotV"
             />
-
+        
+        <CheckBox
+            android:id="@+id/breakpoints"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:text="@string/breakpoints" />
+        
+        <Button
+            android:id="@+id/bRestart"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:text="@string/restart" />
+        
         <Button
             android:id="@+id/bQuit"
             android:layout_width="match_parent"

@@ -235,10 +235,12 @@ public class MyRenderer implements GLSurfaceView.Renderer {
 	
 	public void onDrawFrame(GL10 arg0) {
 		// get timer (for animations)
-		float t;
+		float t = 0.0f;
 		synchronized (lock) {
-			 t  = getTime();
-			 t /= animationLength;
+			if(animation != Animation.NONE) {
+				 t  = getTime();
+				 t /= animationLength;
+			}
 		}
 		
 		// evaluate all spline stuff

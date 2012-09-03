@@ -7,6 +7,12 @@
     <string name="bspline">Bspline</string>
     <string name="line">Line</string>
     <string name="quit">Quit</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="degree">   Polynomial degree </string>
+    <string name="numbBasis">Number of Bsplines</string>
+    <string name="breakpoints">Breakpoint</string>
+    <string name="restart">Restart</string>
     <string name="outKnotU">u-knot</string>
     <string name="outKnotV">v-knot</string>
 

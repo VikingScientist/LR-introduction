@@ -43,16 +43,28 @@ public final class R {
         public static final int ic_launcher=0x7f020001;
     }
     public static final class id {
+        public static final int bDialogCancel=0x7f0a0010;
+        public static final int bDialogOK=0x7f0a000f;
         public static final int bLine=0x7f0a0000;
-        public static final int bQuit=0x7f0a0004;
+        public static final int bQuit=0x7f0a0006;
+        public static final int bRestart=0x7f0a0005;
         public static final int bSpline=0x7f0a0001;
-        public static final int glview=0x7f0a0005;
-        public static final int menu_settings=0x7f0a0006;
+        public static final int breakpoints=0x7f0a0004;
+        public static final int glview=0x7f0a0007;
+        public static final int layout_root=0x7f0a0008;
+        public static final int menu_settings=0x7f0a0011;
+        public static final int numbBasis=0x7f0a000c;
         public static final int outKnotU=0x7f0a0002;
         public static final int outKnotV=0x7f0a0003;
+        public static final int textDegree=0x7f0a0009;
+        public static final int textInN1=0x7f0a000d;
+        public static final int textInN2=0x7f0a000e;
+        public static final int textInP1=0x7f0a000a;
+        public static final int textInP2=0x7f0a000b;
     }
     public static final class layout {
         public static final int activity_main=0x7f030000;
+        public static final int new_spline_dialog=0x7f030001;
     }
     public static final class menu {
         public static final int activity_main=0x7f090000;
@@ -67,13 +79,19 @@ public final class R {
     }
     public static final class string {
         public static final int app_name=0x7f070000;
+        public static final int breakpoints=0x7f07000b;
         public static final int bspline=0x7f070004;
+        public static final int cancel=0x7f070008;
+        public static final int degree=0x7f070009;
         public static final int hello_world=0x7f070001;
         public static final int line=0x7f070005;
         public static final int menu_settings=0x7f070002;
-        public static final int outKnotU=0x7f070007;
-        public static final int outKnotV=0x7f070008;
+        public static final int numbBasis=0x7f07000a;
+        public static final int ok=0x7f070007;
+        public static final int outKnotU=0x7f07000d;
+        public static final int outKnotV=0x7f07000e;
         public static final int quit=0x7f070006;
+        public static final int restart=0x7f07000c;
         public static final int title_activity_main=0x7f070003;
     }
     public static final class style {
